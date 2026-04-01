@@ -200,7 +200,7 @@ function UpgradeModal({
 
   const cost = previewUpgradeCost(item);
   const chance = previewSuccessChance(item, stoneBonus);
-  const isMaxLevel = item.level >= 10;
+  const isMaxLevel = item.level >= 25;
   const template = require('../data/gearTemplates.data').getTemplate(
     item.templateId,
   );

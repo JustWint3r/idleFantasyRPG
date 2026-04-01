@@ -319,8 +319,8 @@ export function upgradeMythical(
     throw new Error('Items must be the same type to fuse');
   if (base.rarity !== 'legendary' || sacrifice.rarity !== 'legendary')
     throw new Error('Both items must be Legendary to fuse into Mythical');
-  if (base.level < 10 || sacrifice.level < 10)
-    throw new Error('Both items must be level 10 to fuse');
+  if (base.level < 25 || sacrifice.level < 25)
+    throw new Error('Both items must be level 25 to fuse');
 
   const mythicalItem: GearItem = {
     ...base,
