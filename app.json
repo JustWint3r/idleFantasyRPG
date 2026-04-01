@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "idleRPG",
+    "slug": "idlerpg",
+    "version": "1.0.0",
+    "scheme": "idlerpg",
+    "platforms": ["ios", "android"],
+    "assetBundlePatterns": ["**/*"]
+  }
+}
