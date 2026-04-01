@@ -4,7 +4,15 @@
     "slug": "idlerpg",
     "version": "1.0.0",
     "scheme": "idlerpg",
-    "platforms": ["ios", "android"],
-    "assetBundlePatterns": ["**/*"]
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.anonymous.idlerpg"
+    }
   }
 }
