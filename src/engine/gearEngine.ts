@@ -23,21 +23,37 @@ import { getTemplate } from '../data/gearTemplates.data';
 
 // ── Success rate table (Type B — probability items) ───────────
 // Index = item level (1-based). Level 1-4 → 100%.
+// REPLACE WITH:
 const SUCCESS_RATE: Record<number, number> = {
   1: 100,
   2: 100,
   3: 100,
   4: 100,
   5: 80,
-  6: 65,
-  7: 50,
-  8: 35,
-  9: 20,
-  10: 10,
+  6: 80,
+  7: 65,
+  8: 65,
+  9: 50,
+  10: 50,
+  11: 40,
+  12: 40,
+  13: 30,
+  14: 30,
+  15: 25,
+  16: 25,
+  17: 20,
+  18: 20,
+  19: 15,
+  20: 15,
+  21: 10,
+  22: 10,
+  23: 8,
+  24: 5,
+  25: 3,
 };
 
 export function getBaseSuccessRate(level: number): number {
-  return SUCCESS_RATE[level] ?? 10;
+  return SUCCESS_RATE[level] ?? 25;
 }
 
 // ── Stat calculation ──────────────────────────────────────────
