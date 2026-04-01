@@ -163,8 +163,8 @@ export function attemptUpgrade(
   item: GearItem,
   opts: UpgradeOptions = {},
 ): UpgradeResult {
-  if (item.level >= 10) {
-    throw new Error('Item is already at max level (10)');
+  if (item.level >= 25) {
+    throw new Error('Item is already at max level (25)');
   }
 
   const t = getTemplate(item.templateId);
