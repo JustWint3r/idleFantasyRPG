@@ -386,14 +386,39 @@ export function initialGearState(): GearState {
 }
 
 /** Apply an upgrade result to gear state (called after attemptUpgrade) */
+// REPLACE WITH:
 export function applyUpgradeResult(
   state: GearState,
   result: UpgradeResult,
   supportStoneId?: string,
 ): GearState {
+  const updatedItem = result.item;
+
+  // Update items array
+  const items = state.items.map((i) =>
+    i.id === updatedItem.id ? updatedItem : i,
+  );
+
+  // Also update the item inside loadouts if it's equipped
+  const loadouts = { ...state.loadouts };
+  for (const heroId of Object.keys(loadouts)) {
+    const loadout = loadouts[heroId];
+    const slotKey = updatedItem.slot as Exclude<typeof updatedItem.slot, 'pet'>;
+    if (loadout.gear[slotKey]?.id === updatedItem.id) {
+      loadouts[heroId] = {
+        ...loadout,
+        gear: {
+          ...loadout.gear,
+          [slotKey]: updatedItem,
+        },
+      };
+    }
+  }
+
   return {
     ...state,
-    items: state.items.map((i) => (i.id === result.item.id ? result.item : i)),
+    items,
+    loadouts,
     upgradeScrolls: state.upgradeScrolls - result.scrollsSpent,
     supportStones: supportStoneId
       ? {

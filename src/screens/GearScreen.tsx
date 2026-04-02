@@ -42,6 +42,8 @@ import {
   unequipItem,
 } from '../engine/gearEngine';
 
+import { useGear } from '../context/GearContext';
+
 // ── Colours ───────────────────────────────────────────────────
 
 const C = {
@@ -353,29 +355,16 @@ function ResultToast({
 // ── Main screen ───────────────────────────────────────────────
 
 export default function GearScreen() {
-  const [gearState, setGearState] = useState<GearState>(() => {
-    // Seed with some demo items so the screen isn't empty
-    const s = initialGearState();
-    const sword = createItem('wpn_iron_sword', 'rare');
-    const armor = createItem('arm_leather_vest', 'common');
-    const helmet = createItem('helm_iron_cap', 'common');
-    const ring = createItem('rng_ember_signet', 'epic');
-    const slime = createPet('pet_slime', 'common');
-    const fox = createPet('pet_fox', 'rare');
-
-    let next = {
-      ...s,
-      items: [sword, armor, helmet, ring],
-      pets: [slime, fox],
-    };
-    next = equipItem(next, sword.id, MOCK_HERO_ID);
-    next = equipItem(next, armor.id, MOCK_HERO_ID);
-    next = equipItem(next, helmet.id, MOCK_HERO_ID);
-    next = equipItem(next, ring.id, MOCK_HERO_ID);
-    next.pets[0] = { ...slime, dungeonSlot: 0 };
-    next.pets[1] = { ...fox, dungeonSlot: 1 };
-    return next;
-  });
+  const {
+    gearState,
+    isLoaded,
+    equip,
+    unequip,
+    upgrade,
+    applyUpgrade,
+    assignPet,
+    getHeroCp,
+  } = useGear();
 
   const [selectedItem, setSelectedItem] = useState<GearItem | null>(null);
   const [lastResult, setLastResult] = useState<UpgradeResult | null>(null);
@@ -385,9 +374,8 @@ export default function GearScreen() {
   const totalCp = calcLoadoutCp(gearState, MOCK_HERO_ID);
 
   function handleUpgrade(result: UpgradeResult, stoneId?: string) {
-    const next = applyUpgradeResult(gearState, result, stoneId);
-    setGearState(next);
-    setSelectedItem(result.item);
+    applyUpgrade(result, stoneId);
+    setSelectedItem(result.item); // keep modal open with updated item
     setLastResult(result);
   }
 
@@ -431,7 +419,11 @@ export default function GearScreen() {
             item={loadout?.gear[slot]}
             onPress={() => {
               const item = loadout?.gear[slot];
-              if (item) setSelectedItem(item);
+              if (item) {
+                // Always read fresh from state, not stale loadout reference
+                const fresh = gearState.items.find((i) => i.id === item.id);
+                if (fresh) setSelectedItem(fresh);
+              }
             }}
           />
         ))}

@@ -1,4 +1,10 @@
 import { Stack } from 'expo-router';
+import { GearProvider } from '../context/GearContext';
+
 export default function RootLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <GearProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </GearProvider>
+  );
 }
