@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────
-//  FarmScreen.tsx  (updated — includes FarmScene)
+//  FarmScreen.tsx  (updated — includes FarmScene + gear CP)
 // ─────────────────────────────────────────────────────────────
 
 import React, { useCallback, useRef, useState } from 'react';
@@ -23,6 +23,7 @@ import type {
   Resources,
 } from '../types/farm.types';
 import FarmScene from '../components/FarmScene';
+import { useGear } from '../context/GearContext';
 
 const C = {
   bg: '#0F0E1A',
@@ -143,11 +144,13 @@ function HeroCard({
   hero,
   zone,
   sessionGold,
+  totalCp,
   onUndeploy,
 }: {
   hero: DeployedHero;
   zone: FarmZone;
   sessionGold: number;
+  totalCp: number;
   onUndeploy: () => void;
 }) {
   return (
@@ -160,7 +163,7 @@ function HeroCard({
           <Text style={styles.heroName}>{hero.name}</Text>
           <Text style={styles.heroStars}>{starsLabel(hero.stars)}</Text>
           <Text style={styles.heroLevel}>
-            Lv {hero.level} · CP {hero.combatPower.toLocaleString()}
+            Lv {hero.level} · CP {totalCp.toLocaleString()}
           </Text>
         </View>
         <Pressable
@@ -223,8 +226,8 @@ function ZoneSelector({
               <Text style={styles.zoneDesc}>{zone.description}</Text>
               <Text style={styles.zoneStats}>
                 Min CP {zone.minCombatPower.toLocaleString()}
-                {'  ·  '}~{formatGold(estimateGoldPerHour(zone))}/hr
-                {'  ·  '}Cap {zone.offlineCapHours}h
+                {'  ·  '}~{formatGold(estimateGoldPerHour(zone))}/hr{'  ·  '}
+                Cap {zone.offlineCapHours}h
               </Text>
             </View>
             {!eligible && <Text style={styles.lockIcon}>🔒</Text>}
@@ -286,6 +289,8 @@ export default function FarmScreen() {
     claimOfflineLoot,
   } = useFarmLoop();
 
+  const { getHeroCp } = useGear();
+
   const [lastResult, setLastResult] = useState<FarmResult | null>(null);
   const prevItemCount = useRef(sessionItems.length);
 
@@ -302,7 +307,8 @@ export default function FarmScreen() {
   }, [sessionItems.length]);
 
   const hero = farmState.deployedHero;
-  const eligibleZones = getEligibleZones(MOCK_HERO.combatPower);
+  const totalHeroCp = getHeroCp('hero_001', MOCK_HERO.combatPower);
+  const eligibleZones = getEligibleZones(totalHeroCp);
   const currentZone = hero
     ? (FARM_ZONES.find((z) => z.id === hero.zoneId) ?? null)
     : null;
@@ -347,6 +353,7 @@ export default function FarmScreen() {
           hero={hero}
           zone={currentZone}
           sessionGold={sessionResources.gold}
+          totalCp={totalHeroCp}
           onUndeploy={undeployHero}
         />
       ) : (
