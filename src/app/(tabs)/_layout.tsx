@@ -6,6 +6,7 @@ export default function TabLayout() {
       <Tabs.Screen name="farm" options={{ title: 'Farm' }} />
       <Tabs.Screen name="gear" options={{ title: 'Gear' }} />
       <Tabs.Screen name="inventory" options={{ title: 'Inventory' }} />
+      <Tabs.Screen name="talent" options={{ title: 'Talents' }} />
     </Tabs>
   );
 }
