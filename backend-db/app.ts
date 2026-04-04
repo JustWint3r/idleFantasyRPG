@@ -21,4 +21,10 @@ app.get("/", (req, res) => {
   res.json({ message: "IdleFantasyRPG API running" });
 });
 
+// JSON error handler — must be last, catches anything Express throws
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("[ERROR]", err.message || err);
+  res.status(err.status || 500).json({ message: err.message || "Server error" });
+});
+
 export default app;
