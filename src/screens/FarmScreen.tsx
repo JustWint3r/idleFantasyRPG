@@ -24,6 +24,8 @@ import type {
 } from '../types/farm.types';
 import FarmScene from '../components/FarmScene';
 import { useGear } from '../context/GearContext';
+import { farmItemsToGearItems } from '../engine/farmConverter';
+import { usePlayer } from '../context/PlayerContext';
 
 const C = {
   bg: '#0F0E1A',
@@ -289,18 +291,29 @@ export default function FarmScreen() {
     claimOfflineLoot,
   } = useFarmLoop();
 
-  const { getHeroCp } = useGear();
+  const { getHeroCp, addItems } = useGear();
+  const { addCurrencies } = usePlayer();
 
   const [lastResult, setLastResult] = useState<FarmResult | null>(null);
   const prevItemCount = useRef(sessionItems.length);
 
   React.useEffect(() => {
     if (sessionItems.length > prevItemCount.current) {
+      const newItems = sessionItems.slice(prevItemCount.current);
       setLastResult({
         durationSeconds: 60,
         resources: sessionResources,
-        items: sessionItems.slice(prevItemCount.current),
+        items: newItems,
         rollCount: 1,
+      });
+      // Push new drops into gear inventory immediately
+      addItems(farmItemsToGearItems(newItems));
+      // Push gold/mats to player currencies
+      addCurrencies({
+        gold: sessionResources.gold,
+        craftMats: sessionResources.craftMats,
+        summonScrolls: sessionResources.summonScrolls,
+        xpBooks: sessionResources.xpBooks,
       });
     }
     prevItemCount.current = sessionItems.length;
@@ -344,7 +357,20 @@ export default function FarmScreen() {
           wasCapped={offlineSummary.wasCapped}
           resources={offlineSummary.result.resources}
           items={offlineSummary.result.items}
-          onClaim={claimOfflineLoot}
+          onClaim={() => {
+            const claimed = claimOfflineLoot();
+            // Push items to gear inventory
+            if (claimed?.items?.length) {
+              addItems(farmItemsToGearItems(claimed.items));
+            }
+            // Push resources to player currencies
+            addCurrencies({
+              gold: claimed?.gold ?? 0,
+              craftMats: claimed?.craftMats ?? 0,
+              summonScrolls: claimed?.summonScrolls ?? 0,
+              xpBooks: claimed?.xpBooks ?? 0,
+            });
+          }}
         />
       )}
 

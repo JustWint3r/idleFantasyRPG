@@ -92,6 +92,8 @@ export interface UseGearStateReturn {
   assignPet: (petId: string, slot: 0 | 1 | 2 | null) => void;
   /** Fuse two legendaries into mythical */
   fuseMyth: (baseId: string, sacrificeId: string) => void;
+  /** Add items to the gear state */
+  addItems: (items: GearItem[]) => void;
 }
 
 // ── Hook ──────────────────────────────────────────────────────
@@ -99,6 +101,12 @@ export interface UseGearStateReturn {
 export function useGearState(): UseGearStateReturn {
   const [gearState, setGearState] = useState<GearState>(initialGearState);
   const [isLoaded, setIsLoaded] = useState(false);
+  const addItems = useCallback(
+    (newItems: GearItem[]) => {
+      update({ ...gearState, items: [...gearState.items, ...newItems] });
+    },
+    [gearState],
+  );
 
   useEffect(() => {
     loadGearState().then((s) => {
@@ -179,5 +187,6 @@ export function useGearState(): UseGearStateReturn {
     applyUpgrade,
     assignPet,
     fuseMyth,
+    addItems,
   };
 }
