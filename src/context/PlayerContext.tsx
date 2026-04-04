@@ -66,6 +66,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // When auth player loads (on login), override gold/diamonds/summonScrolls with backend values
+  useEffect(() => {
+    if (!authPlayer) return;
+    setCurrenciesState((prev) => ({
+      ...prev,
+      gold: authPlayer.gold,
+      diamonds: authPlayer.diamonds,
+      summonScrolls: authPlayer.summonScrolls,
+    }));
+  }, [authPlayer?.gold, authPlayer?.diamonds, authPlayer?.summonScrolls]);
+
   function update(next: PlayerCurrencies) {
     setCurrenciesState(next);
     save(next);
