@@ -296,7 +296,28 @@ export default function FarmScreen() {
 
   const [lastResult, setLastResult] = useState<FarmResult | null>(null);
   const prevItemCount = useRef(sessionItems.length);
+  const prevSyncedResources = useRef({ gold: 0, craftMats: 0, summonScrolls: 0, xpBooks: 0 });
 
+  // Live currency update — fires every farm tick via sessionResources change
+  React.useEffect(() => {
+    const delta = {
+      gold: sessionResources.gold - prevSyncedResources.current.gold,
+      craftMats: sessionResources.craftMats - prevSyncedResources.current.craftMats,
+      summonScrolls: sessionResources.summonScrolls - prevSyncedResources.current.summonScrolls,
+      xpBooks: sessionResources.xpBooks - prevSyncedResources.current.xpBooks,
+    };
+    if (delta.gold > 0 || delta.craftMats > 0 || delta.summonScrolls > 0 || delta.xpBooks > 0) {
+      addCurrencies(delta);
+    }
+    prevSyncedResources.current = {
+      gold: sessionResources.gold,
+      craftMats: sessionResources.craftMats,
+      summonScrolls: sessionResources.summonScrolls,
+      xpBooks: sessionResources.xpBooks,
+    };
+  }, [sessionResources.gold, sessionResources.craftMats, sessionResources.summonScrolls, sessionResources.xpBooks]);
+
+  // Item drop — only handles gear inventory, currencies handled above
   React.useEffect(() => {
     if (sessionItems.length > prevItemCount.current) {
       const newItems = sessionItems.slice(prevItemCount.current);
@@ -306,15 +327,7 @@ export default function FarmScreen() {
         items: newItems,
         rollCount: 1,
       });
-      // Push new drops into gear inventory immediately
       addItems(farmItemsToGearItems(newItems));
-      // Push gold/mats to player currencies
-      addCurrencies({
-        gold: sessionResources.gold,
-        craftMats: sessionResources.craftMats,
-        summonScrolls: sessionResources.summonScrolls,
-        xpBooks: sessionResources.xpBooks,
-      });
     }
     prevItemCount.current = sessionItems.length;
   }, [sessionItems.length]);
