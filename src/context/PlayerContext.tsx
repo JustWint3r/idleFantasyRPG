@@ -8,6 +8,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,6 +16,8 @@ import {
   initialCurrencies,
   type PlayerCurrencies,
 } from '../types/player.types';
+import { useAuth } from './AuthContext';
+import { addCurrencyToBackend } from '../services/playerService';
 
 const STORAGE_KEY = '@realm_idle/player_currencies_v1';
 
@@ -47,10 +50,15 @@ async function save(c: PlayerCurrencies) {
 }
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
+  const { token, player: authPlayer } = useAuth();
+  const tokenRef = useRef(token);
+  useEffect(() => { tokenRef.current = token; }, [token]);
+
   const [currencies, setCurrenciesState] =
     useState<PlayerCurrencies>(initialCurrencies);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Load local currencies from AsyncStorage on mount
   useEffect(() => {
     load().then((c) => {
       setCurrenciesState(c);
@@ -70,6 +78,20 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         next[k] = Math.max(0, (prev[k] ?? 0) + (delta[k] ?? 0));
       }
       save(next);
+
+      // Sync backend-tracked currencies (fire and forget)
+      if (tokenRef.current) {
+        const backendDelta: { gold?: number; diamonds?: number; summonScrolls?: number } = {};
+        if (delta.gold) backendDelta.gold = delta.gold;
+        if (delta.diamonds) backendDelta.diamonds = delta.diamonds;
+        if (delta.summonScrolls) backendDelta.summonScrolls = delta.summonScrolls;
+        if (Object.keys(backendDelta).length > 0) {
+          addCurrencyToBackend(tokenRef.current, backendDelta).catch((e) =>
+            console.warn('[PlayerContext] backend sync failed', e)
+          );
+        }
+      }
+
       return next;
     });
   }, []);

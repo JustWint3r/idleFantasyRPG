@@ -2,9 +2,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
+import { usePlayer } from '../context/PlayerContext';
 
 export default function HomeScreen() {
   const { player, logout } = useAuth();
+  const { currencies } = usePlayer();
 
   async function handleLogout() {
     await logout();
@@ -17,9 +19,9 @@ export default function HomeScreen() {
       {player && <Text style={styles.playerEmail}>{player.email}</Text>}
 
       <View style={styles.statsRow}>
-        <StatBox label="Gold" value={player?.gold ?? 0} color="#F5C542" />
-        <StatBox label="Diamonds" value={player?.diamonds ?? 0} color="#5CF5FF" />
-        <StatBox label="Scrolls" value={player?.summonScrolls ?? 0} color="#BF7CFF" />
+        <StatBox label="Gold" value={currencies.gold} color="#F5C542" />
+        <StatBox label="Diamonds" value={currencies.diamonds} color="#5CF5FF" />
+        <StatBox label="Scrolls" value={currencies.summonScrolls} color="#BF7CFF" />
       </View>
 
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
