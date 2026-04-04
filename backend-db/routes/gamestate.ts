@@ -41,6 +41,7 @@ router.post("/save", async (req: AuthRequest, res: Response) => {
       { new: true, upsert: true } // create if doesn't exist
     );
 
+    console.log(`[DB] GameState saved for player (${req.playerId}): zone=${gameState?.farmZone}, prestige=${gameState?.prestigeCount}, heroes=${gameState?.heroesOwned?.length ?? 0}`);
     res.json({ message: "Game saved successfully", gameState });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
@@ -63,6 +64,7 @@ router.patch("/deploy", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    console.log(`[DB] Hero deployed for player (${req.playerId}): heroId=${heroId}`);
     res.json({ message: "Hero deployed", gameState });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
@@ -85,6 +87,7 @@ router.patch("/zone", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    console.log(`[DB] Farm zone updated for player (${req.playerId}): zone=${farmZone}`);
     res.json({ message: "Farm zone updated", gameState });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });

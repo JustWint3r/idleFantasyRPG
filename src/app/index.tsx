@@ -10,8 +10,8 @@ import {
   Platform,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
-import { loginPlayer, registerPlayer } from '../../services/authService';
+import { useAuth } from '../context/AuthContext';
+import { loginPlayer, registerPlayer } from '../services/authService';
 
 export default function AuthScreen() {
   const { token, isLoaded, setAuth } = useAuth();

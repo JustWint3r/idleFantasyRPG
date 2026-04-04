@@ -6,9 +6,9 @@ import { useAuth } from '../context/AuthContext';
 export default function HomeScreen() {
   const { player, logout } = useAuth();
 
-  function handleLogout() {
-    logout();
-    router.replace('/(tabs)');
+  async function handleLogout() {
+    await logout();
+    router.replace('/');
   }
 
   return (

@@ -54,6 +54,7 @@ router.post("/add", async (req: AuthRequest, res: Response) => {
     if (existingItem) {
       existingItem.quantity += quantity;
       await existingItem.save();
+      console.log(`[DB] Inventory quantity updated for player (${req.playerId}): itemTemplateId=${itemTemplateId}, newQty=${existingItem.quantity}`);
       res.json({ message: "Item quantity updated", item: existingItem });
       return;
     }
@@ -64,7 +65,7 @@ router.post("/add", async (req: AuthRequest, res: Response) => {
       type,
       quantity,
     });
-
+    console.log(`[DB] New item added to inventory for player (${req.playerId}): itemTemplateId=${itemTemplateId}, type=${type}, qty=${quantity}`);
     res.status(201).json({ message: "Item added to inventory", item: newItem });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
@@ -93,11 +94,13 @@ router.patch("/:id/use", async (req: AuthRequest, res: Response) => {
     // Remove item from inventory if quantity reaches 0
     if (item.quantity === 0) {
       await item.deleteOne();
+      console.log(`[DB] Item fully consumed and removed for player (${req.playerId}): itemId=${req.params.id}`);
       res.json({ message: "Item fully consumed and removed" });
       return;
     }
 
     await item.save();
+    console.log(`[DB] Item used for player (${req.playerId}): itemId=${req.params.id}, remainingQty=${item.quantity}`);
     res.json({ message: "Item used", item });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
@@ -117,6 +120,7 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    console.log(`[DB] Item removed from inventory for player (${req.playerId}): itemId=${req.params.id}`);
     res.json({ message: "Item removed from inventory" });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });

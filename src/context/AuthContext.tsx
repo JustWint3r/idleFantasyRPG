@@ -10,7 +10,7 @@ interface AuthContextValue {
   player: AuthPlayer | null;
   isLoaded: boolean;
   setAuth: (token: string, player: AuthPlayer) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -42,11 +42,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(PLAYER_KEY, JSON.stringify(p));
   }
 
-  function logout() {
+  async function logout() {
+    await Promise.all([
+      AsyncStorage.removeItem(TOKEN_KEY),
+      AsyncStorage.removeItem(PLAYER_KEY),
+    ]);
     setToken(null);
     setPlayer(null);
-    AsyncStorage.removeItem(TOKEN_KEY);
-    AsyncStorage.removeItem(PLAYER_KEY);
   }
 
   return (

@@ -42,6 +42,7 @@ router.patch("/me", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    console.log(`[DB] Player updated (${req.playerId}): gold=${updatedPlayer.gold}, diamonds=${updatedPlayer.diamonds}, scrolls=${updatedPlayer.summonScrolls}`);
     res.json(updatedPlayer);
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
@@ -66,6 +67,7 @@ router.patch("/me/add-currency", async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    console.log(`[DB] Currency added for player (${req.playerId}): +gold=${gold}, +diamonds=${diamonds}, +scrolls=${summonScrolls} → gold=${updatedPlayer.gold}, diamonds=${updatedPlayer.diamonds}, scrolls=${updatedPlayer.summonScrolls}`);
     res.json(updatedPlayer);
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
