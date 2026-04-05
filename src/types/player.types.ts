@@ -17,9 +17,9 @@ export interface PlayerCurrencies {
 
 export function initialCurrencies(): PlayerCurrencies {
   return {
-    gold: 5000,
-    diamonds: 300,
-    summonScrolls: 5,
+    gold: 0,           // loaded from backend on login
+    diamonds: 0,       // loaded from backend on login
+    summonScrolls: 0,  // loaded from backend on login
     upgradeScrolls: 10,
     craftMats: 30,
     xpBooks: 20,

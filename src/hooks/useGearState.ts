@@ -103,9 +103,16 @@ export function useGearState(): UseGearStateReturn {
   const [isLoaded, setIsLoaded] = useState(false);
   const addItems = useCallback(
     (newItems: GearItem[]) => {
-      update({ ...gearState, items: [...gearState.items, ...newItems] });
+      setGearState((prev) => {
+        const existingIds = new Set(prev.items.map((i) => i.id));
+        const deduped = newItems.filter((i) => !existingIds.has(i.id));
+        if (deduped.length === 0) return prev;
+        const next = { ...prev, items: [...prev.items, ...deduped] };
+        saveGearState(next);
+        return next;
+      });
     },
-    [gearState],
+    [],
   );
 
   useEffect(() => {

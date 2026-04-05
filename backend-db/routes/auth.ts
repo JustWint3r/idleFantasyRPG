@@ -28,9 +28,11 @@ router.post("/register", async (req: Request, res: Response) => {
       email,
       password: hashedPassword,
     });
+    console.log(`[DB] New player created: ${player.email} (id: ${player._id})`);
 
     // Auto-create an empty game state for the new player
     await GameState.create({ playerId: player._id });
+    console.log(`[DB] GameState created for player: ${player._id}`);
 
     const token = jwt.sign({ id: player._id }, process.env.JWT_SECRET as string, {
       expiresIn: "7d",
@@ -78,6 +80,7 @@ router.post("/login", async (req: Request, res: Response) => {
       expiresIn: "7d",
     });
 
+    console.log(`[DB] Player logged in: ${player.email} (id: ${player._id})`);
     res.json({
       message: "Login successful",
       token,
