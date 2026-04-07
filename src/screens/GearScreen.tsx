@@ -504,7 +504,7 @@ export default function GearScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  content: { padding: 16, paddingTop: 56, gap: 12, paddingBottom: 60 },
+  content: { padding: 16, paddingTop: 16, gap: 12, paddingBottom: 60 },
   sectionLabel: {
     fontSize: 11,
     color: C.textMuted,
