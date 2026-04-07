@@ -7,6 +7,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -25,6 +26,18 @@ import {
   type OwnedPet,
   type PetRarity,
 } from '../types/petCollection.types';
+
+// ── Rarity sort ───────────────────────────────────────────────
+
+const RARITY_ORDER: Record<PetRarity, number> = {
+  super_legendary: 0,
+  legendary:       1,
+  rare:            2,
+};
+
+function sortByRarity(pets: OwnedPet[]): OwnedPet[] {
+  return [...pets].sort((a, b) => RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity]);
+}
 
 // ── Colours ───────────────────────────────────────────────────
 
@@ -187,7 +200,7 @@ function SelectModal({
         <Pressable style={styles.upgradeCard} onPress={() => {}}>
           <Text style={styles.upgradeTitle}>My Pets</Text>
           <ScrollView style={{ maxHeight: 360 }}>
-            {ownedPets.map((p) => (
+            {sortByRarity(ownedPets).map((p) => (
               <PetListCard
                 key={p.id}
                 pet={p}
@@ -228,29 +241,32 @@ export default function PetHomeScreen({ onCatch }: { onCatch: () => void }) {
   const rColor = RARITY_COLOR[activePet.rarity];
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {/* Active pet card */}
+    <View style={styles.screen}>
+      {/* Active pet card — compact, fixed size */}
       <RarityCard rarity={activePet.rarity} style={styles.activePetCard}>
-        <Text style={styles.activePetEmoji}>{activePet.emoji}</Text>
-        <Text style={[styles.activePetName, { color: rColor }]}>{activePet.name}</Text>
-        <Text style={styles.activePetRarity}>{RARITY_LABEL[activePet.rarity]}</Text>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statVal}>{activePet.maxHp}</Text>
-            <Text style={styles.statLbl}>HP</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statVal}>{activePet.atk}</Text>
-            <Text style={styles.statLbl}>ATK</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statVal}>{activePet.spd}</Text>
-            <Text style={styles.statLbl}>SPD</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={[styles.statVal, { color: C.gold }]}>Lv {activePet.level}</Text>
-            <Text style={styles.statLbl}>LEVEL</Text>
+        <View style={styles.activePetRow}>
+          <Text style={styles.activePetEmoji}>{activePet.emoji}</Text>
+          <View style={styles.activePetInfo}>
+            <Text style={[styles.activePetName, { color: rColor }]}>{activePet.name}</Text>
+            <Text style={styles.activePetRarity}>{RARITY_LABEL[activePet.rarity]}</Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statVal}>{activePet.maxHp}</Text>
+                <Text style={styles.statLbl}>HP</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statVal}>{activePet.atk}</Text>
+                <Text style={styles.statLbl}>ATK</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statVal}>{activePet.spd}</Text>
+                <Text style={styles.statLbl}>SPD</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={[styles.statVal, { color: C.gold }]}>Lv {activePet.level}</Text>
+                <Text style={styles.statLbl}>LEVEL</Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -263,22 +279,27 @@ export default function PetHomeScreen({ onCatch }: { onCatch: () => void }) {
         </View>
       </RarityCard>
 
+      {/* Section label */}
       <Text style={styles.sectionLabel}>Owned Pets · {ownedPets.length}</Text>
 
-      {/* Collection preview */}
-      {ownedPets.slice(0, 4).map((p) => (
-        <PetListCard
-          key={p.id}
-          pet={p}
-          isActive={p.id === activePetId}
-          onSelect={() => setShowSelect(true)}
-        />
-      ))}
-      {ownedPets.length > 4 && (
-        <Text style={styles.morePets}>+{ownedPets.length - 4} more pets…</Text>
-      )}
+      {/* Pet list — fills all remaining space, no outer scroll */}
+      <FlatList
+        style={styles.petList}
+        contentContainerStyle={styles.petListContent}
+        data={sortByRarity(ownedPets)}
+        keyExtractor={(p) => p.id}
+        renderItem={({ item: p }) => (
+          <PetListCard
+            pet={p}
+            isActive={p.id === activePetId}
+            onSelect={() => setShowSelect(true)}
+          />
+        )}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={ownedPets.length > 4}
+      />
 
-      {/* Action buttons */}
+      {/* Action buttons — pinned at bottom */}
       <View style={styles.actionRow}>
         <Pressable style={styles.actionBtn} onPress={() => setShowUpgrade(true)}>
           <Text style={styles.actionIcon}>🍖</Text>
@@ -296,15 +317,20 @@ export default function PetHomeScreen({ onCatch }: { onCatch: () => void }) {
 
       <UpgradeModal pet={activePet} visible={showUpgrade} onClose={() => setShowUpgrade(false)} />
       <SelectModal  visible={showSelect}  onClose={() => setShowSelect(false)} />
-    </ScrollView>
+    </View>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  screen:  { flex: 1, backgroundColor: C.bg },
-  content: { padding: 16, gap: 12, paddingBottom: 32 },
+  // ── Screen — fixed, never scrolls ─────────────────────────
+  screen: {
+    flex: 1,
+    backgroundColor: C.bg,
+    padding: 12,
+    gap: 8,
+  },
 
   rarityBase: {
     backgroundColor: C.surface,
@@ -312,53 +338,66 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  activePetCard: { padding: 20, alignItems: 'center', gap: 8 },
-  activePetEmoji: { fontSize: 72 },
-  activePetName:  { fontSize: 22, fontWeight: '700' },
-  activePetRarity:{ fontSize: 13, color: C.textMuted, letterSpacing: 1 },
+  // ── Active pet card — horizontal layout with extra height for future animation ────
+  activePetCard: { padding: 18, gap: 12, minHeight: 180 },
+  activePetRow:  { flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1 },
+  activePetEmoji:{ fontSize: 72 },
+  activePetInfo: { flex: 1, gap: 2 },
+  activePetName: { fontSize: 17, fontWeight: '700' },
+  activePetRarity:{ fontSize: 11, color: C.textMuted, letterSpacing: 1, marginBottom: 4 },
 
-  statsRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  statBox:  { alignItems: 'center', backgroundColor: C.surfaceHigh, borderRadius: 10, padding: 10, minWidth: 60 },
-  statVal:  { fontSize: 16, fontWeight: '700', color: C.textPrimary },
-  statLbl:  { fontSize: 10, color: C.textMuted, marginTop: 2 },
+  statsRow: { flexDirection: 'row', gap: 6 },
+  statBox:  { alignItems: 'center', backgroundColor: C.surfaceHigh, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 8, minWidth: 48 },
+  statVal:  { fontSize: 13, fontWeight: '700', color: C.textPrimary },
+  statLbl:  { fontSize: 9,  color: C.textMuted, marginTop: 1 },
 
-  expRow:    { width: '100%', gap: 4 },
-  expLabel:  { fontSize: 11, color: C.textMuted },
-  expBarWrap:{ height: 6, backgroundColor: C.border, borderRadius: 3, width: '100%', overflow: 'hidden' },
+  expRow:    { gap: 3 },
+  expLabel:  { fontSize: 10, color: C.textMuted },
+  expBarWrap:{ height: 5, backgroundColor: C.border, borderRadius: 3, overflow: 'hidden' },
   expBarFill:{ height: '100%', backgroundColor: C.gold, borderRadius: 3 },
 
-  sectionLabel: { fontSize: 11, color: C.textMuted, letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 4 },
+  // ── Section label ──────────────────────────────────────────
+  sectionLabel: {
+    fontSize: 10,
+    color: C.textMuted,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+
+  // ── Pet list — fills all remaining space ───────────────────
+  petList:        { flex: 1 },
+  petListContent: { gap: 6 },
 
   listCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: C.surface,
     borderRadius: 12,
-    padding: 12,
-    gap: 12,
+    padding: 10,
+    gap: 10,
     borderWidth: 1,
     borderColor: C.border,
   },
-  listEmoji: { fontSize: 28 },
-  listName:  { fontSize: 14, fontWeight: '600' },
-  listMeta:  { fontSize: 11, color: C.textMuted, marginTop: 2 },
-  activeTag: { fontSize: 11, fontWeight: '600' },
-  morePets:  { fontSize: 12, color: C.textMuted, textAlign: 'center', marginTop: 4 },
+  listEmoji: { fontSize: 24 },
+  listName:  { fontSize: 13, fontWeight: '600' },
+  listMeta:  { fontSize: 10, color: C.textMuted, marginTop: 1 },
+  activeTag: { fontSize: 10, fontWeight: '600' },
 
-  actionRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  // ── Action buttons — pinned at bottom ─────────────────────
+  actionRow: { flexDirection: 'row', gap: 10 },
   actionBtn: {
     flex: 1,
     backgroundColor: C.surface,
     borderRadius: 14,
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     borderWidth: 1,
     borderColor: C.border,
   },
   actionBtnPrimary: { backgroundColor: '#2A2060', borderColor: '#5540BB' },
-  actionIcon:  { fontSize: 24 },
-  actionLabel: { fontSize: 12, color: C.textMuted },
+  actionIcon:  { fontSize: 22 },
+  actionLabel: { fontSize: 11, color: C.textMuted },
 
   catchBtn: {
     backgroundColor: '#2A2060',
