@@ -64,7 +64,7 @@ export default function CharacterScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg, paddingTop: 54 },
+  screen: { flex: 1, backgroundColor: C.bg },
   subTabBar: {
     flexDirection: 'row',
     backgroundColor: C.surface,
