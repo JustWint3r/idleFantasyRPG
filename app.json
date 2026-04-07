@@ -11,6 +11,9 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "fonts": [
+      "./assets/fonts/SirinStencil-Regular.ttf"
+    ],
     "android": {
       "package": "com.anonymous.idlerpg"
     }

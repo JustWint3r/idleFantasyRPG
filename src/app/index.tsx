@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Dimensions,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -11,9 +14,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useFonts } from 'expo-font';
 import { router } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { loginPlayer, registerPlayer } from '../services/authService';
+
+const { width, height } = Dimensions.get('window');
 
 // ── Colours ───────────────────────────────────────────────────
 
@@ -29,17 +35,6 @@ const C = {
   inputBorder: '#2D2A45',
 } as const;
 
-// ── Stick figure characters (decorative) ─────────────────────
-
-function Characters() {
-  return (
-    <View style={styles.characters}>
-      <Text style={styles.char}>🧝‍♀️</Text>
-      <Text style={styles.char}>⚔️</Text>
-      <Text style={styles.char}>🧙‍♂️</Text>
-    </View>
-  );
-}
 
 // ── Login / Register modal ────────────────────────────────────
 
@@ -188,11 +183,49 @@ function AuthModal({
   );
 }
 
+// ── Tap to begin animated text ────────────────────────────────
+
+function TapToContinue() {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const blur = useRef(new Animated.Value(10)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 1, duration: 1800, useNativeDriver: true }),
+          Animated.timing(blur, { toValue: 0, duration: 1800, useNativeDriver: true }),
+        ]),
+        Animated.delay(1000),
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 0, duration: 1200, useNativeDriver: true }),
+          Animated.timing(blur, { toValue: 10, duration: 1200, useNativeDriver: true }),
+        ]),
+        Animated.delay(400),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.Text
+      style={[
+        styles.tapText,
+        { opacity },
+      ]}
+    >
+      Tap Anywhere to Begin
+    </Animated.Text>
+  );
+}
+
 // ── Landing screen ────────────────────────────────────────────
 
 export default function LandingScreen() {
   const { token, isLoaded } = useAuth();
   const [showModal, setShowModal] = useState(false);
+  const [fontsLoaded] = useFonts({
+    'SirinStencil': require('../../assets/fonts/SirinStencil-Regular.ttf'),
+  });
 
   useEffect(() => {
     if (isLoaded && token) {
@@ -200,14 +233,17 @@ export default function LandingScreen() {
     }
   }, [isLoaded, token]);
 
-  if (!isLoaded || token) return null;
+  if (!isLoaded || token || !fontsLoaded) return null;
 
   return (
     <Pressable style={styles.landing} onPress={() => setShowModal(true)}>
-      <Text style={styles.landingTitle}>Idle Fantasy RPG</Text>
-      <Text style={styles.landingHint}>Click anywhere to start!</Text>
+      <Image
+        source={require('../../assets/idleFantasyRPGLogo.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
 
-      <Characters />
+      <TapToContinue />
 
       <AuthModal
         visible={showModal}
@@ -226,27 +262,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
+    justifyContent: 'flex-start',
+    paddingTop: height * 0.08,
   },
-  landingTitle: {
-    color: C.textPrimary,
-    fontSize: 36,
-    fontWeight: '700',
-    letterSpacing: 1,
+  logo: {
+    width: width * 0.8,
+    height: height * 0.35,
+    marginBottom: 4,
   },
-  landingHint: {
-    color: C.textMuted,
-    fontSize: 16,
-  },
-  characters: {
-    flexDirection: 'row',
-    gap: 24,
-    marginTop: 40,
-    fontSize: 48,
-  },
-  char: {
-    fontSize: 52,
+  tapText: {
+    fontFamily: 'SirinStencil',
+    fontSize: 22,
+    color: '#C8A96E',
+    letterSpacing: 2,
+    textAlign: 'center',
+    marginTop: 220,
   },
 
   // Modal backdrop
