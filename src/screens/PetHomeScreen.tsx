@@ -18,6 +18,7 @@ import {
 import { usePetCollection } from '../context/PetCollectionContext';
 import {
   expToNextLevel,
+  PET_TEMPLATES,
 } from '../engine/petBattleEngine';
 import {
   RAINBOW_CYCLE,
@@ -25,6 +26,7 @@ import {
   RARITY_LABEL,
   type OwnedPet,
   type PetRarity,
+  type PetTemplate,
 } from '../types/petCollection.types';
 
 // ── Rarity sort ───────────────────────────────────────────────
@@ -183,32 +185,77 @@ function UpgradeModal({
   );
 }
 
-// ── Pet selection modal ───────────────────────────────────────
+// ── Pet gallery modal — all templates, owned vs locked ───────
 
-function SelectModal({
+const GALLERY_RARITY_ORDER: PetRarity[] = ['super_legendary', 'legendary', 'rare'];
+
+function GalleryRow({
+  template,
+  owned,
+}: {
+  template: PetTemplate;
+  owned: OwnedPet | undefined;
+}) {
+  const color = RARITY_COLOR[template.rarity];
+  const isOwned = !!owned;
+
+  return (
+    <View style={[styles.galleryRow, { borderColor: isOwned ? color : C.border, opacity: isOwned ? 1 : 0.45 }]}>
+      <Text style={styles.galleryEmoji}>{isOwned ? template.emoji : '❓'}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.galleryName, { color: isOwned ? color : C.textMuted }]}>
+          {isOwned ? template.name : '??? Unknown'}
+        </Text>
+        <Text style={styles.galleryMeta}>
+          {RARITY_LABEL[template.rarity]}
+          {isOwned ? `  ·  Lv ${owned!.level}` : '  ·  Not caught yet'}
+        </Text>
+      </View>
+      {isOwned
+        ? <Text style={[styles.galleryBadge, { color }]}>Owned</Text>
+        : <Text style={styles.galleryLock}>🔒</Text>
+      }
+    </View>
+  );
+}
+
+function GalleryModal({
   visible,
   onClose,
 }: {
   visible: boolean;
   onClose: () => void;
 }) {
-  const { ownedPets, activePetId, setActivePet } = usePetCollection();
+  const { ownedPets } = usePetCollection();
+  const ownedMap = new Map(ownedPets.map((p) => [p.templateId, p]));
+
+  const sorted = [...PET_TEMPLATES].sort(
+    (a, b) => GALLERY_RARITY_ORDER.indexOf(a.rarity) - GALLERY_RARITY_ORDER.indexOf(b.rarity),
+  );
+
+  const total  = PET_TEMPLATES.length;
+  const caught = ownedPets.length;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.upgradeCard} onPress={() => {}}>
-          <Text style={styles.upgradeTitle}>My Pets</Text>
-          <ScrollView style={{ maxHeight: 360 }}>
-            {sortByRarity(ownedPets).map((p) => (
-              <PetListCard
-                key={p.id}
-                pet={p}
-                isActive={p.id === activePetId}
-                onSelect={() => { setActivePet(p.id); onClose(); }}
-              />
+          <Text style={styles.upgradeTitle}>Pet Gallery</Text>
+          <Text style={styles.upgradeSub}>
+            {caught} / {total} caught
+          </Text>
+
+          {/* Progress bar */}
+          <View style={styles.galleryProgressWrap}>
+            <View style={[styles.galleryProgressFill, { width: `${(caught / total) * 100}%` as any }]} />
+          </View>
+
+          <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+            {sorted.map((t) => (
+              <GalleryRow key={t.id} template={t} owned={ownedMap.get(t.id)} />
             ))}
           </ScrollView>
+
           <Pressable style={styles.closeBtn} onPress={onClose}>
             <Text style={styles.closeBtnText}>Close</Text>
           </Pressable>
@@ -221,9 +268,9 @@ function SelectModal({
 // ── Main screen ───────────────────────────────────────────────
 
 export default function PetHomeScreen({ onCatch }: { onCatch: () => void }) {
-  const { ownedPets, activePetId } = usePetCollection();
+  const { ownedPets, activePetId, setActivePet } = usePetCollection();
   const [showUpgrade, setShowUpgrade] = useState(false);
-  const [showSelect,  setShowSelect]  = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
 
   const activePet = ownedPets.find((p) => p.id === activePetId) ?? ownedPets[0];
 
@@ -292,7 +339,7 @@ export default function PetHomeScreen({ onCatch }: { onCatch: () => void }) {
           <PetListCard
             pet={p}
             isActive={p.id === activePetId}
-            onSelect={() => setShowSelect(true)}
+            onSelect={() => setActivePet(p.id)}
           />
         )}
         showsVerticalScrollIndicator={false}
@@ -305,9 +352,9 @@ export default function PetHomeScreen({ onCatch }: { onCatch: () => void }) {
           <Text style={styles.actionIcon}>🍖</Text>
           <Text style={styles.actionLabel}>Upgrade</Text>
         </Pressable>
-        <Pressable style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={() => setShowSelect(true)}>
-          <Text style={styles.actionIcon}>📋</Text>
-          <Text style={[styles.actionLabel, { color: C.textPrimary }]}>My Pets</Text>
+        <Pressable style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={() => setShowGallery(true)}>
+          <Text style={styles.actionIcon}>📖</Text>
+          <Text style={[styles.actionLabel, { color: C.textPrimary }]}>Gallery</Text>
         </Pressable>
         <Pressable style={styles.actionBtn} onPress={onCatch}>
           <Text style={styles.actionIcon}>🎾</Text>
@@ -316,7 +363,7 @@ export default function PetHomeScreen({ onCatch }: { onCatch: () => void }) {
       </View>
 
       <UpgradeModal pet={activePet} visible={showUpgrade} onClose={() => setShowUpgrade(false)} />
-      <SelectModal  visible={showSelect}  onClose={() => setShowSelect(false)} />
+      <GalleryModal visible={showGallery} onClose={() => setShowGallery(false)} />
     </View>
   );
 }
@@ -437,4 +484,27 @@ const styles = StyleSheet.create({
   feedBtnCost: { color: C.textMuted,   fontSize: 11 },
   closeBtn: { borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: C.border },
   closeBtnText: { color: C.textMuted, fontSize: 14 },
+
+  // ── Gallery ────────────────────────────────────────────────
+  galleryProgressWrap: {
+    height: 6, backgroundColor: C.border, borderRadius: 3, overflow: 'hidden',
+  },
+  galleryProgressFill: {
+    height: '100%', backgroundColor: C.gold, borderRadius: 3,
+  },
+  galleryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    padding: 10,
+    gap: 10,
+    borderWidth: 1.5,
+    marginBottom: 6,
+  },
+  galleryEmoji:  { fontSize: 26 },
+  galleryName:   { fontSize: 13, fontWeight: '600' },
+  galleryMeta:   { fontSize: 10, color: C.textMuted, marginTop: 2 },
+  galleryBadge:  { fontSize: 10, fontWeight: '700' },
+  galleryLock:   { fontSize: 14 },
 });
