@@ -15,7 +15,7 @@ export const RARITY_ORDER: Record<Rarity, number> = {
 };
 
 // ── Item ─────────────────────────────────────────────────────
-export type GearSlot = 'weapon' | 'armor' | 'helmet' | 'ring' | 'accessory';
+export type GearSlot = 'weapon' | 'armor' | 'helmet' | 'ring' | 'boots' | 'necklace';
 
 export interface Item {
   id: string; // unique instance id (uuid)
