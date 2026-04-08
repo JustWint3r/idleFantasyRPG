@@ -1,11 +1,12 @@
 // ─────────────────────────────────────────────────────────────
 //  PetSpawnScreen.tsx
-//  Zone selection map → spawns 3 random wild pets to choose from.
+//  Map view — one wild pet spawns per zone; player picks one to fight.
 // ─────────────────────────────────────────────────────────────
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Dimensions,
   Image,
   Pressable,
   ScrollView,
@@ -13,7 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { spawnWildPets } from '../engine/petBattleEngine';
+import { spawnOneWildPet } from '../engine/petBattleEngine';
 import {
   RAINBOW_CYCLE,
   RARITY_COLOR,
@@ -35,83 +36,100 @@ const C = {
   textPrimary: '#EDE8FF',
   textMuted:   '#7B7699',
   gold:        '#F5C842',
+  mapBorder:   '#3A3560',
 } as const;
 
-// ── Wild pet card ─────────────────────────────────────────────
+// ── Rainbow hook ──────────────────────────────────────────────
 
-function WildPetCard({
-  wild,
-  onFight,
-}: {
-  wild: WildPetInstance;
-  onFight: () => void;
-}) {
-  const color   = RARITY_COLOR[wild.template.rarity];
-  const isSuper = wild.template.rarity === 'super_legendary';
-
+function useRainbowColor(active: boolean) {
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    if (!isSuper) return;
-    Animated.loop(
+    if (!active) return;
+    const loop = Animated.loop(
       Animated.timing(anim, { toValue: 1, duration: 2500, useNativeDriver: false }),
-    ).start();
-    return () => anim.stopAnimation();
-  }, [isSuper]);
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [active, anim]);
 
-  const rainbowColor = anim.interpolate({
+  return anim.interpolate({
     inputRange:  RAINBOW_CYCLE.map((_, i) => i / (RAINBOW_CYCLE.length - 1)),
     outputRange: RAINBOW_CYCLE,
   });
-
-  const dynColor = isSuper ? rainbowColor : color;
-
-  return (
-    <Animated.View style={[styles.wildCard, { borderColor: dynColor }]}>
-      {wild.template.image
-        ? <Image source={wild.template.image} style={styles.wildImage} />
-        : <Text style={styles.wildEmoji}>{wild.template.emoji}</Text>
-      }
-      <View style={{ flex: 1 }}>
-        <Animated.Text style={[styles.wildName, { color: dynColor }]}>{wild.template.name}</Animated.Text>
-        <Text style={styles.wildRarity}>{RARITY_LABEL[wild.template.rarity]}</Text>
-        <View style={styles.wildStats}>
-          <Text style={styles.wildStat}>HP {wild.maxHp}</Text>
-          <Text style={styles.wildStat}>ATK {wild.atk}</Text>
-          <Text style={styles.wildStat}>SPD {wild.spd}</Text>
-        </View>
-        <Text style={styles.wildDesc} numberOfLines={2}>{wild.template.description}</Text>
-      </View>
-      <Animated.View style={[styles.fightBtn, { borderColor: dynColor }]}>
-        <Pressable onPress={onFight}>
-          <Animated.Text style={[styles.fightBtnText, { color: dynColor }]}>Fight!</Animated.Text>
-        </Pressable>
-      </Animated.View>
-    </Animated.View>
-  );
 }
 
-// ── Zone map card ─────────────────────────────────────────────
+// ── Zone map tile ─────────────────────────────────────────────
 
-function ZoneCard({
+function ZoneTile({
   zone,
-  onSelect,
+  pet,
+  onFight,
 }: {
   zone: PetZone;
-  onSelect: () => void;
+  pet: WildPetInstance;
+  onFight: () => void;
 }) {
+  const isSuper   = pet.template.rarity === 'super_legendary';
+  const baseColor = RARITY_COLOR[pet.template.rarity];
+  const rainbow   = useRainbowColor(isSuper);
+  const color     = isSuper ? rainbow : baseColor;
+
   return (
-    <Pressable
-      style={[styles.zoneCard, { backgroundColor: ZONE_BG[zone] }]}
-      onPress={onSelect}
-    >
-      <Text style={styles.zoneEmoji}>{ZONE_EMOJI[zone]}</Text>
-      <Text style={styles.zoneName}>{ZONE_LABEL[zone]}</Text>
-      <Text style={styles.zoneHint}>Tap to explore</Text>
-    </Pressable>
+    <View style={[styles.zoneTile, { backgroundColor: ZONE_BG[zone] }]}>
+      {/* Zone header */}
+      <View style={styles.zoneHeader}>
+        <Text style={styles.zoneEmoji}>{ZONE_EMOJI[zone]}</Text>
+        <Text style={styles.zoneName}>{ZONE_LABEL[zone]}</Text>
+      </View>
+
+      {/* Divider */}
+      <View style={[styles.zoneDivider, { backgroundColor: C.mapBorder }]} />
+
+      {/* Spawned pet */}
+      <Animated.View style={[styles.petCard, { borderColor: color }]}>
+        <View style={styles.petArt}>
+          {pet.template.image
+            ? <Image source={pet.template.image} style={styles.petImage} />
+            : <Text style={styles.petEmoji}>{pet.template.emoji}</Text>
+          }
+        </View>
+
+        <View style={styles.petInfo}>
+          <Animated.Text style={[styles.petName, { color }]} numberOfLines={1}>
+            {pet.template.name}
+          </Animated.Text>
+          <Text style={styles.petRarity}>{RARITY_LABEL[pet.template.rarity]}</Text>
+          <View style={styles.statsRow}>
+            <Text style={styles.stat}>HP {pet.maxHp}</Text>
+            <Text style={styles.stat}>ATK {pet.atk}</Text>
+            <Text style={styles.stat}>SPD {pet.spd}</Text>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* Fight button */}
+      <Animated.View style={[styles.fightBtnWrap, { borderColor: color }]}>
+        <Pressable style={styles.fightBtnInner} onPress={onFight}>
+          <Animated.Text style={[styles.fightBtnText, { color }]}>
+            ⚔️ Fight &amp; Catch
+          </Animated.Text>
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
 // ── Main screen ───────────────────────────────────────────────
+
+type ZoneMap = Record<PetZone, WildPetInstance>;
+
+function spawnAll(): ZoneMap {
+  return {
+    rain_forest:    spawnOneWildPet('rain_forest'),
+    sea:            spawnOneWildPet('sea'),
+    endless_fire:   spawnOneWildPet('endless_fire'),
+  };
+}
 
 export default function PetSpawnScreen({
   onSelectPet,
@@ -120,61 +138,80 @@ export default function PetSpawnScreen({
   onSelectPet: (wild: WildPetInstance) => void;
   onBack: () => void;
 }) {
-  const [wildPets, setWildPets] = useState<WildPetInstance[] | null>(null);
-  const [selectedZone, setSelectedZone] = useState<PetZone | null>(null);
+  const [zoneMap, setZoneMap] = useState<ZoneMap>(spawnAll);
 
-  function handleZone(zone: PetZone) {
-    setSelectedZone(zone);
-    setWildPets(spawnWildPets(zone));
-  }
+  const reroll = useCallback(() => setZoneMap(spawnAll()), []);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {/* Back */}
+
+      {/* Header */}
       <Pressable style={styles.backBtn} onPress={onBack}>
         <Text style={styles.backText}>← Back</Text>
       </Pressable>
 
-      {!wildPets ? (
-        <>
-          <Text style={styles.heading}>Choose a Zone</Text>
-          <Text style={styles.sub}>3 wild pets will appear — pick one to fight!</Text>
-          <View style={styles.zonesGrid}>
-            {ZONES.map((z) => (
-              <ZoneCard key={z} zone={z} onSelect={() => handleZone(z)} />
-            ))}
-          </View>
-        </>
-      ) : (
-        <>
-          <Text style={styles.heading}>
-            {ZONE_EMOJI[selectedZone!]} {ZONE_LABEL[selectedZone!]}
-          </Text>
-          <Text style={styles.sub}>3 wild pets appeared — choose one to battle!</Text>
-          {wildPets.map((w, i) => (
-            <WildPetCard
-              key={i}
-              wild={w}
-              onFight={() => onSelectPet(w)}
-            />
-          ))}
-          <Pressable
-            style={styles.rerollBtn}
-            onPress={() => setWildPets(spawnWildPets(selectedZone!))}
-          >
-            <Text style={styles.rerollText}>🔄 Re-explore zone</Text>
-          </Pressable>
-        </>
-      )}
+      <Text style={styles.heading}>Wild Encounters</Text>
+      <Text style={styles.sub}>
+        One pet has appeared in each zone — choose one to fight and catch!
+      </Text>
+
+      {/* Map container */}
+      <View style={styles.mapContainer}>
+        {/* Decorative map label */}
+        <Text style={styles.mapLabel}>🗺️ World Map</Text>
+
+        {/* Rain Forest — top */}
+        <ZoneTile
+          zone="rain_forest"
+          pet={zoneMap.rain_forest}
+          onFight={() => onSelectPet(zoneMap.rain_forest)}
+        />
+
+        {/* Horizontal path divider */}
+        <View style={styles.pathDivider}>
+          <View style={styles.pathLine} />
+          <Text style={styles.pathDot}>≈</Text>
+          <View style={styles.pathLine} />
+        </View>
+
+        {/* Sea — middle */}
+        <ZoneTile
+          zone="sea"
+          pet={zoneMap.sea}
+          onFight={() => onSelectPet(zoneMap.sea)}
+        />
+
+        {/* Horizontal path divider */}
+        <View style={styles.pathDivider}>
+          <View style={styles.pathLine} />
+          <Text style={styles.pathDot}>≈</Text>
+          <View style={styles.pathLine} />
+        </View>
+
+        {/* Endless Fire — bottom */}
+        <ZoneTile
+          zone="endless_fire"
+          pet={zoneMap.endless_fire}
+          onFight={() => onSelectPet(zoneMap.endless_fire)}
+        />
+      </View>
+
+      {/* Re-roll */}
+      <Pressable style={styles.rerollBtn} onPress={reroll}>
+        <Text style={styles.rerollText}>🔄 Respawn all pets</Text>
+      </Pressable>
+
     </ScrollView>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────
 
+const { width } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
   screen:  { flex: 1, backgroundColor: C.bg },
-  content: { padding: 16, gap: 14, paddingBottom: 32 },
+  content: { padding: 16, gap: 14, paddingBottom: 40 },
 
   backBtn:  { flexDirection: 'row', alignItems: 'center' },
   backText: { color: C.textMuted, fontSize: 14 },
@@ -182,45 +219,87 @@ const styles = StyleSheet.create({
   heading: { color: C.textPrimary, fontSize: 22, fontWeight: '700', textAlign: 'center' },
   sub:     { color: C.textMuted,   fontSize: 13, textAlign: 'center' },
 
-  zonesGrid: { gap: 12 },
-  zoneCard: {
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: C.border,
+  // Map wrapper
+  mapContainer: {
+    backgroundColor: C.surface,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: C.mapBorder,
+    padding: 12,
+    gap: 0,
   },
-  zoneEmoji: { fontSize: 52 },
-  zoneName:  { fontSize: 20, fontWeight: '700', color: C.textPrimary },
-  zoneHint:  { fontSize: 12, color: C.textMuted },
+  mapLabel: {
+    color: C.textMuted,
+    fontSize: 11,
+    textAlign: 'center',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
 
-  wildCard: {
+  // Zone tile
+  zoneTile: {
+    borderRadius: 14,
+    padding: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: C.mapBorder,
+    overflow: 'hidden',
+  },
+  zoneHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  zoneEmoji:  { fontSize: 24 },
+  zoneName:   { color: C.textPrimary, fontSize: 16, fontWeight: '700' },
+  zoneDivider:{ height: 1, borderRadius: 1, opacity: 0.4 },
+
+  // Pet card inside tile
+  petCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.surface,
-    borderRadius: 14,
-    padding: 14,
-    gap: 12,
-    borderWidth: 2,
+    backgroundColor: C.surfaceHigh,
+    borderRadius: 10,
+    padding: 10,
+    gap: 10,
+    borderWidth: 1.5,
   },
-  wildEmoji:  { fontSize: 40 },
-  wildImage:  { width: 56, height: 56 },
-  wildName:   { fontSize: 15, fontWeight: '700' },
-  wildRarity: { fontSize: 11, color: C.textMuted, marginBottom: 4 },
-  wildStats:  { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  wildStat:   { fontSize: 11, color: C.textMuted, backgroundColor: C.surfaceHigh, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  wildDesc:   { fontSize: 11, color: C.textMuted, lineHeight: 16 },
+  petArt:   { width: 52, height: 52, justifyContent: 'center', alignItems: 'center' },
+  petImage: { width: 52, height: 52, resizeMode: 'contain' },
+  petEmoji: { fontSize: 38 },
+  petInfo:  { flex: 1, gap: 2 },
+  petName:  { fontSize: 14, fontWeight: '700' },
+  petRarity:{ fontSize: 11, color: C.textMuted },
+  statsRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  stat:     {
+    fontSize: 10,
+    color: C.textMuted,
+    backgroundColor: C.bg,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
 
-  fightBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  // Fight button
+  fightBtnWrap: {
     borderRadius: 10,
     borderWidth: 1.5,
+    overflow: 'hidden',
+  },
+  fightBtnInner: {
+    paddingVertical: 10,
     alignItems: 'center',
   },
-  fightBtnText: { fontSize: 13, fontWeight: '700' },
+  fightBtnText: { fontSize: 14, fontWeight: '700' },
 
+  // Path divider between zones
+  pathDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+    gap: 6,
+  },
+  pathLine: { flex: 1, height: 1, backgroundColor: C.mapBorder },
+  pathDot:  { color: C.textMuted, fontSize: 14 },
+
+  // Re-roll
   rerollBtn: {
     alignItems: 'center',
     paddingVertical: 14,

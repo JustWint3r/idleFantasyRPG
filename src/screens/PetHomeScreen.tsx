@@ -33,6 +33,12 @@ import {
   type PetTemplate,
 } from '../types/petCollection.types';
 
+// ── Template image lookup (avoids stale AsyncStorage asset IDs) ──
+
+function templateImage(templateId: string): number | undefined {
+  return PET_TEMPLATES.find((t) => t.id === templateId)?.image;
+}
+
 // ── Rarity sort ───────────────────────────────────────────────
 
 const RARITY_ORDER: Record<PetRarity, number> = {
@@ -146,8 +152,8 @@ function PetListCard({
   return (
     <Animated.View style={[styles.listCard, isActive && { borderWidth: 2 }, { borderColor }]}>
       <Pressable style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }} onPress={onSelect}>
-        {pet.image
-          ? <Image source={pet.image} style={styles.listImage} />
+        {templateImage(pet.templateId)
+          ? <Image source={templateImage(pet.templateId)!} style={styles.listImage} />
           : <Text style={styles.listEmoji}>{pet.emoji}</Text>
         }
         <View style={{ flex: 1 }}>
@@ -197,8 +203,8 @@ function UpgradeModal({
         <View style={styles.upgradeCard}>
           <Text style={styles.upgradeTitle}>Feed Pet</Text>
           <View style={{ alignItems: 'center' }}>
-            {pet.image
-              ? <Image source={pet.image} style={styles.upgradePetImage} />
+            {templateImage(pet.templateId)
+              ? <Image source={templateImage(pet.templateId)!} style={styles.upgradePetImage} />
               : <Text style={{ fontSize: 40 }}>{pet.emoji}</Text>
             }
           </View>
@@ -399,8 +405,8 @@ export default function PetHomeScreen({ onCatch }: { onCatch: () => void }) {
       {/* Active pet card — compact, fixed size */}
       <RarityCard rarity={activePet.rarity} style={styles.activePetCard}>
         <View style={styles.activePetRow}>
-          {activePet.image
-            ? <Image source={activePet.image} style={styles.activePetImage} />
+          {templateImage(activePet.templateId)
+            ? <Image source={templateImage(activePet.templateId)!} style={styles.activePetImage} />
             : <Text style={styles.activePetEmoji}>{activePet.emoji}</Text>
           }
           <View style={styles.activePetInfo}>
