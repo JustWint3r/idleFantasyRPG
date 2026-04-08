@@ -57,7 +57,15 @@ async function loadGearState(): Promise<GearState> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return seedDemoData(initialGearState());
-    return JSON.parse(raw) as GearState;
+    const state = JSON.parse(raw) as GearState;
+    // Deduplicate items by id in case stale data was persisted before dedup logic existed
+    const seen = new Set<string>();
+    state.items = state.items.filter((i) => {
+      if (seen.has(i.id)) return false;
+      seen.add(i.id);
+      return true;
+    });
+    return state;
   } catch {
     return seedDemoData(initialGearState());
   }

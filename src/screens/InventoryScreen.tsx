@@ -638,7 +638,7 @@ export default function InventoryScreen() {
 const CELL_SIZE = (SW - 32 - 12) / 4;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg, paddingTop: 54 },
+  screen: { flex: 1, backgroundColor: C.bg },
 
   currBar: {
     maxHeight: 44,
