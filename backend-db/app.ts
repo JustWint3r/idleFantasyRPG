@@ -5,6 +5,14 @@ import gameStateRoutes from "./routes/gamestate";
 import inventoryRoutes from "./routes/inventory";
 import itemRoutes from "./routes/items";
 
+//grok
+//FORCE RELIABLE DNS SERVERS
+import dns from "node:dns";
+
+dns.setServers(["8.8.8.8", "8.8.4.4"]);     // Google DNS (very reliable)
+// dns.setServers(["1.1.1.1", "1.0.0.1"]);  // Alternative: Cloudflare DNS
+
+
 const app = express();
 
 app.use(express.json());
