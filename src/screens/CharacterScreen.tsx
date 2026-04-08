@@ -6,6 +6,7 @@
 
 import React, { useState } from 'react';
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -26,7 +27,6 @@ import {
 import { calcLoadoutCp, calcLoadoutStats } from '../engine/gearEngine';
 import { ITEM_TEMPLATES } from '../data/gearTemplates.data';
 import TalentScreen from './TalentScreen';
-
 
 // ── Colours ───────────────────────────────────────────────────
 
@@ -69,10 +69,7 @@ function GearSlotBtn({
 }) {
   const borderColor = item ? RARITY_COLOR[item.rarity] : C.border;
   return (
-    <Pressable
-      style={[styles.slotBtn, { borderColor }]}
-      onPress={onPress}
-    >
+    <Pressable style={[styles.slotBtn, { borderColor }]} onPress={onPress}>
       <Text style={styles.slotIcon}>{SLOT_ICON[slot]}</Text>
       {item ? (
         <Text style={[styles.slotLevel, { color: RARITY_COLOR[item.rarity] }]}>
@@ -107,7 +104,9 @@ function InspectModal({
   return (
     <View style={styles.modalOverlay}>
       <View style={styles.modalCard}>
-        <View style={[styles.modalHeader, { borderBottomColor: rColor + '55' }]}>
+        <View
+          style={[styles.modalHeader, { borderBottomColor: rColor + '55' }]}
+        >
           <Text style={styles.modalIconText}>{SLOT_ICON[item.slot]}</Text>
           <View style={{ flex: 1 }}>
             <Text style={styles.modalName}>
@@ -117,15 +116,27 @@ function InspectModal({
               {RARITY_LABEL[item.rarity]} · {SLOT_LABEL[item.slot]}
             </Text>
           </View>
-          <Text style={[styles.modalLevel, { color: C.gold }]}>+{item.level}</Text>
+          <Text style={[styles.modalLevel, { color: C.gold }]}>
+            +{item.level}
+          </Text>
         </View>
 
         <View style={styles.statsBlock}>
-          {item.stats.atk > 0 && <StatRow label="ATK" value={`${Math.round(item.stats.atk)}`} />}
-          {item.stats.def > 0 && <StatRow label="DEF" value={`${Math.round(item.stats.def)}`} />}
-          {item.stats.hp > 0 && <StatRow label="HP" value={fmt(item.stats.hp)} />}
-          {item.stats.crit > 0 && <StatRow label="CRIT" value={`${item.stats.crit}%`} />}
-          {item.stats.critDmg > 0 && <StatRow label="CRIT DMG" value={`${item.stats.critDmg}%`} />}
+          {item.stats.atk > 0 && (
+            <StatRow label="ATK" value={`${Math.round(item.stats.atk)}`} />
+          )}
+          {item.stats.def > 0 && (
+            <StatRow label="DEF" value={`${Math.round(item.stats.def)}`} />
+          )}
+          {item.stats.hp > 0 && (
+            <StatRow label="HP" value={fmt(item.stats.hp)} />
+          )}
+          {item.stats.crit > 0 && (
+            <StatRow label="CRIT" value={`${item.stats.crit}%`} />
+          )}
+          {item.stats.critDmg > 0 && (
+            <StatRow label="CRIT DMG" value={`${item.stats.critDmg}%`} />
+          )}
           <StatRow label="CP" value={String(item.cp)} highlight />
         </View>
 
@@ -146,11 +157,21 @@ function InspectModal({
   );
 }
 
-function StatRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function StatRow({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
   return (
     <View style={styles.statRow}>
       <Text style={styles.statL}>{label}</Text>
-      <Text style={[styles.statR, highlight && { color: C.gold }]}>{value}</Text>
+      <Text style={[styles.statR, highlight && { color: C.gold }]}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -190,7 +211,6 @@ export default function CharacterScreen() {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-
         {/* ── Combat power summary ── */}
         <View style={styles.cpRow}>
           <Text style={styles.cpValue}>{totalCp.toLocaleString()}</Text>
@@ -199,9 +219,21 @@ export default function CharacterScreen() {
 
         {/* ── Character + gear layout ── */}
         <View style={styles.characterPanel}>
+          {/* Portrait — natural-flow centre, determines panel height */}
+          <View style={styles.centreCol}>
+            <View style={styles.characterPortrait}>
+              <Image
+                source={require('../../assets/aria.png')}
+                style={styles.portraitImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.portraitName}>Aria</Text>
+            <Text style={styles.portraitLevel}>Lv 42</Text>
+          </View>
 
-          {/* Left gear column: 4 gear slots + pet at bottom */}
-          <View style={styles.gearCol}>
+          {/* Left gear column — absolute layer, never shifts with portrait */}
+          <View style={styles.gearColLeft}>
             {LEFT_SLOTS.map((slot) => (
               <GearSlotBtn
                 key={slot}
@@ -216,17 +248,8 @@ export default function CharacterScreen() {
             </Pressable>
           </View>
 
-          {/* Centre: character portrait */}
-          <View style={styles.centreCol}>
-            <View style={styles.characterPortrait}>
-              <Text style={styles.portraitInitial}>A</Text>
-              <Text style={styles.portraitName}>Aria</Text>
-              <Text style={styles.portraitLevel}>Lv 42</Text>
-            </View>
-          </View>
-
-          {/* Right gear column: 3 gear slots + talent at bottom */}
-          <View style={styles.gearCol}>
+          {/* Right gear column — absolute layer, never shifts with portrait */}
+          <View style={styles.gearColRight}>
             {RIGHT_SLOTS.map((slot) => (
               <GearSlotBtn
                 key={slot}
@@ -235,21 +258,33 @@ export default function CharacterScreen() {
                 onPress={() => openSlot(slot)}
               />
             ))}
-            <Pressable style={styles.slotBtn} onPress={() => setShowTalent(true)}>
+            <Pressable
+              style={styles.slotBtn}
+              onPress={() => setShowTalent(true)}
+            >
               <Text style={styles.slotIcon}>🌟</Text>
               <Text style={styles.slotEmpty}>Talent</Text>
             </Pressable>
           </View>
-
         </View>
 
         {/* Stats bar */}
         <View style={styles.statsBar}>
-          {totalStats.atk > 0 && <Text style={styles.statChip}>ATK {fmt(totalStats.atk)}</Text>}
-          {totalStats.def > 0 && <Text style={styles.statChip}>DEF {fmt(totalStats.def)}</Text>}
-          {totalStats.hp > 0 && <Text style={styles.statChip}>HP {fmt(totalStats.hp)}</Text>}
-          {totalStats.crit > 0 && <Text style={styles.statChip}>CRIT {totalStats.crit}%</Text>}
-          {totalStats.critDmg > 0 && <Text style={styles.statChip}>CDMG {totalStats.critDmg}%</Text>}
+          {totalStats.atk > 0 && (
+            <Text style={styles.statChip}>ATK {fmt(totalStats.atk)}</Text>
+          )}
+          {totalStats.def > 0 && (
+            <Text style={styles.statChip}>DEF {fmt(totalStats.def)}</Text>
+          )}
+          {totalStats.hp > 0 && (
+            <Text style={styles.statChip}>HP {fmt(totalStats.hp)}</Text>
+          )}
+          {totalStats.crit > 0 && (
+            <Text style={styles.statChip}>CRIT {totalStats.crit}%</Text>
+          )}
+          {totalStats.critDmg > 0 && (
+            <Text style={styles.statChip}>CDMG {totalStats.critDmg}%</Text>
+          )}
         </View>
 
         {/* ── Inventory ── */}
@@ -265,13 +300,22 @@ export default function CharacterScreen() {
             inventoryItems.map((item) => (
               <Pressable
                 key={item.id}
-                style={[styles.inventoryRow, { borderColor: RARITY_COLOR[item.rarity] }]}
+                style={[
+                  styles.inventoryRow,
+                  { borderColor: RARITY_COLOR[item.rarity] },
+                ]}
                 onPress={() => setInspecting(item)}
               >
                 <Text style={styles.invIcon}>{SLOT_ICON[item.slot]}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.invName, { color: RARITY_COLOR[item.rarity] }]}>
-                    {ITEM_TEMPLATES[item.templateId]?.name ?? item.templateId.replace(/_/g, ' ')}
+                  <Text
+                    style={[
+                      styles.invName,
+                      { color: RARITY_COLOR[item.rarity] },
+                    ]}
+                  >
+                    {ITEM_TEMPLATES[item.templateId]?.name ??
+                      item.templateId.replace(/_/g, ' ')}
                   </Text>
                   <Text style={styles.invMeta}>
                     {RARITY_LABEL[item.rarity]} · Lv {item.level} · CP {item.cp}
@@ -282,7 +326,6 @@ export default function CharacterScreen() {
             ))
           )}
         </View>
-
       </ScrollView>
 
       {/* Inspect modal */}
@@ -320,8 +363,8 @@ export default function CharacterScreen() {
 // ── Styles ────────────────────────────────────────────────────
 
 const SLOT_SIZE = 62;
-const PORTRAIT_W = 110;
-const PORTRAIT_H = 160;
+const PORTRAIT_W = 240;
+const PORTRAIT_H = 360;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
@@ -340,21 +383,35 @@ const styles = StyleSheet.create({
 
   // Character panel
   characterPanel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    position: 'relative',
     backgroundColor: C.surface,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.border,
-    padding: 12,
-    gap: 8,
+    alignItems: 'center',
+    paddingVertical: 16,
   },
 
-  // Gear columns
-  gearCol: {
-    gap: 8,
+  // Gear columns — absolute layers, completely independent of portrait size
+  gearColLeft: {
+    position: 'absolute',
+    left: 8,
+    top: 0,
+    bottom: 0,
+    width: SLOT_SIZE,
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
+  },
+  gearColRight: {
+    position: 'absolute',
+    right: 8,
+    top: 0,
+    bottom: 0,
+    width: SLOT_SIZE,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
   },
   slotBtn: {
     width: SLOT_SIZE,
@@ -378,15 +435,13 @@ const styles = StyleSheet.create({
   characterPortrait: {
     width: PORTRAIT_W,
     height: PORTRAIT_H,
-    backgroundColor: C.surfaceHigh,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: C.purple + '88',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
   },
-  portraitInitial: { fontSize: 48, fontWeight: '700', color: C.purple },
+  portraitImage: {
+    width: PORTRAIT_W,
+    height: PORTRAIT_H,
+  },
   portraitName: { fontSize: 12, fontWeight: '600', color: C.textPrimary },
   portraitLevel: { fontSize: 10, color: C.textMuted },
 
