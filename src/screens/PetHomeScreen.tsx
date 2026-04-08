@@ -13,6 +13,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { usePetCollection } from '../context/PetCollectionContext';
@@ -234,12 +235,18 @@ function GalleryModal({
   );
 
   const total  = PET_TEMPLATES.length;
-  const caught = ownedPets.length;
+  const caught = ownedMap.size;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.upgradeCard} onPress={() => {}}>
+      <View style={styles.backdrop}>
+        {/* Tapping the dim area closes the modal */}
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={StyleSheet.absoluteFill} />
+        </TouchableWithoutFeedback>
+
+        {/* Card — plain View so ScrollView gestures are never stolen */}
+        <View style={styles.upgradeCard}>
           <Text style={styles.upgradeTitle}>Pet Gallery</Text>
           <Text style={styles.upgradeSub}>
             {caught} / {total} caught
@@ -250,17 +257,25 @@ function GalleryModal({
             <View style={[styles.galleryProgressFill, { width: `${(caught / total) * 100}%` as any }]} />
           </View>
 
-          <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={{ maxHeight: 380 }}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+          >
             {sorted.map((t) => (
               <GalleryRow key={t.id} template={t} owned={ownedMap.get(t.id)} />
             ))}
           </ScrollView>
 
-          <Pressable style={styles.closeBtn} onPress={onClose}>
+          <Pressable
+            android_ripple={null}
+            style={styles.closeBtn}
+            onPress={onClose}
+          >
             <Text style={styles.closeBtnText}>Close</Text>
           </Pressable>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -352,9 +367,9 @@ export default function PetHomeScreen({ onCatch }: { onCatch: () => void }) {
           <Text style={styles.actionIcon}>🍖</Text>
           <Text style={styles.actionLabel}>Upgrade</Text>
         </Pressable>
-        <Pressable style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={() => setShowGallery(true)}>
+        <Pressable style={styles.actionBtn} onPress={() => setShowGallery(true)}>
           <Text style={styles.actionIcon}>📖</Text>
-          <Text style={[styles.actionLabel, { color: C.textPrimary }]}>Gallery</Text>
+          <Text style={styles.actionLabel}>Gallery</Text>
         </Pressable>
         <Pressable style={styles.actionBtn} onPress={onCatch}>
           <Text style={styles.actionIcon}>🎾</Text>
