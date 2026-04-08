@@ -418,7 +418,7 @@ export default function TalentScreen() {
 const NODE_W = 130;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg, paddingTop: 54 },
+  screen: { flex: 1, backgroundColor: C.bg },
 
   heroBar: {
     maxHeight: 64,
