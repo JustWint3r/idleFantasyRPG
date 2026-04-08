@@ -145,34 +145,6 @@ export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
     description: 'A ring bearing an eternal ember. Raises critical fury.',
   },
 
-  // ── ACCESSORY (mixed stats, Type B) ───────────────────────
-  acc_lucky_charm: {
-    id: 'acc_lucky_charm',
-    name: 'Lucky Charm',
-    slot: 'accessory',
-    upgradeType: 'guaranteed',
-    baseStats: { atk: 5, def: 5, hp: 100, crit: 3, critDmg: 8 },
-    statPerLevel: { atk: 2, def: 2, hp: 30, crit: 0.3, critDmg: 1 },
-    baseCp: 55,
-    cpPerLevel: 16,
-    goldCostBase: 110,
-    matsPerUpgrade: 1,
-    description: 'A worn charm. Said to bring fortune to its bearer.',
-  },
-  acc_void_pendant: {
-    id: 'acc_void_pendant',
-    name: 'Void Pendant',
-    slot: 'accessory',
-    upgradeType: 'probability',
-    baseStats: { atk: 25, def: 25, hp: 300, crit: 5, critDmg: 20 },
-    statPerLevel: { atk: 8, def: 8, hp: 90, crit: 0.5, critDmg: 2.5 },
-    baseCp: 150,
-    cpPerLevel: 45,
-    goldCostBase: 900,
-    matsPerUpgrade: 2,
-    description: 'A pendant born from void crystal. Radiates cold power.',
-  },
-
   // ── BOOTS (DEF + SPD substitute via ATK, Type A) ──────────
   bts_worn_boots: {
     id: 'bts_worn_boots',
