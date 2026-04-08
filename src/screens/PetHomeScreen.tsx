@@ -19,7 +19,9 @@ import {
 } from 'react-native';
 import { usePetCollection } from '../context/PetCollectionContext';
 import {
+  expToMax,
   expToNextLevel,
+  MAX_PET_LEVEL,
   PET_TEMPLATES,
 } from '../engine/petBattleEngine';
 import {
@@ -209,12 +211,22 @@ function UpgradeModal({
 
           <View style={styles.feedRow}>
             {[10, 50, 100].map((amt) => (
-              <Pressable key={amt} style={styles.feedBtn} onPress={() => feed(amt)}>
+              <Pressable key={amt} style={styles.feedBtn} onPress={() => feed(amt)} disabled={pet.level >= MAX_PET_LEVEL}>
                 <Text style={styles.feedBtnText}>+{amt} EXP</Text>
                 <Text style={styles.feedBtnCost}>📖 {amt}</Text>
               </Pressable>
             ))}
           </View>
+
+          {pet.level < MAX_PET_LEVEL ? (
+            <Pressable style={styles.maxBtn} onPress={() => feed(expToMax(pet))}>
+              <Text style={styles.maxBtnText}>⚡ Max  (needs {expToMax(pet)} EXP)</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.maxBtn}>
+              <Text style={styles.maxBtnText}>✨ Max Level Reached!</Text>
+            </View>
+          )}
 
           {confirmRelease ? (
             <View style={styles.confirmRow}>
@@ -584,6 +596,8 @@ const styles = StyleSheet.create({
   closeBtn: { borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: C.border },
   closeBtnText: { color: C.textMuted, fontSize: 14 },
   upgradePetImage: { width: 72, height: 72 },
+  maxBtn: { borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: '#2A2060', borderWidth: 1, borderColor: '#5540BB' },
+  maxBtnText: { color: C.textPrimary, fontSize: 14, fontWeight: '700' },
   releaseBtn: { borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: C.red },
   releaseBtnText: { color: C.red, fontSize: 14 },
   confirmRow: { gap: 8 },
