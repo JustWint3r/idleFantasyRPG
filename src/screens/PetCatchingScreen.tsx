@@ -95,11 +95,13 @@ function ThrowBall({
 function CatchResult({
   success,
   petEmoji,
+  petImage,
   petName,
   onDone,
 }: {
   success: boolean;
   petEmoji: string;
+  petImage?: number;
   petName: string;
   onDone: () => void;
 }) {
@@ -121,9 +123,13 @@ function CatchResult({
           {success ? 'Caught!' : 'Escaped!'}
         </Text>
         {success ? (
-          <Text style={styles.resultDesc}>
-            {petEmoji}  {petName} has joined your team!
-          </Text>
+          <View style={styles.resultDescRow}>
+            {petImage
+              ? <Image source={petImage} style={styles.resultPetImage} />
+              : <Text style={styles.resultPetEmoji}>{petEmoji}</Text>
+            }
+            <Text style={styles.resultDesc}>{petName} has joined your team!</Text>
+          </View>
         ) : (
           <Text style={styles.resultDesc}>The pet broke free and escaped…</Text>
         )}
@@ -245,6 +251,7 @@ export default function PetCatchingScreen({
         <CatchResult
           success={catchResult}
           petEmoji={wildPet.template.emoji}
+          petImage={wildPet.template.image}
           petName={wildPet.template.name}
           onDone={onDone}
         />
@@ -327,10 +334,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
   },
-  resultEmoji: { fontSize: 52 },
-  resultWin:   { fontSize: 28, fontWeight: '900', color: C.green },
-  resultFail:  { fontSize: 28, fontWeight: '900', color: C.red },
-  resultDesc:  { fontSize: 14, color: C.textMuted, textAlign: 'center' },
+  resultEmoji:    { fontSize: 52 },
+  resultWin:      { fontSize: 28, fontWeight: '900', color: C.green },
+  resultFail:     { fontSize: 28, fontWeight: '900', color: C.red },
+  resultDescRow:  { alignItems: 'center', gap: 8 },
+  resultPetImage: { width: 80, height: 80 },
+  resultPetEmoji: { fontSize: 52 },
+  resultDesc:     { fontSize: 14, color: C.textMuted, textAlign: 'center' },
   doneBtn:     { backgroundColor: C.gold, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 32, marginTop: 8 },
   doneBtnText: { fontSize: 15, fontWeight: '700', color: C.bg },
 });

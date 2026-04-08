@@ -247,20 +247,33 @@ export function createStarterPet(): OwnedPet {
 }
 
 /** EXP needed to reach next level */
+export const MAX_PET_LEVEL = 50;
+
 export function expToNextLevel(level: number): number {
   return level * 50;
 }
 
-/** Feed a pet (add EXP, level up if threshold reached) */
+/** Total EXP needed to reach max level from current level + exp */
+export function expToMax(pet: OwnedPet): number {
+  if (pet.level >= MAX_PET_LEVEL) return 0;
+  let total = expToNextLevel(pet.level) - pet.exp;
+  for (let lv = pet.level + 1; lv < MAX_PET_LEVEL; lv++) {
+    total += expToNextLevel(lv);
+  }
+  return total;
+}
+
+/** Feed a pet (add EXP, level up if threshold reached, capped at MAX_PET_LEVEL) */
 export function feedPet(pet: OwnedPet, expGain: number): OwnedPet {
   let { level, exp, maxHp, atk, spd } = pet;
   exp += expGain;
-  while (exp >= expToNextLevel(level)) {
+  while (level < MAX_PET_LEVEL && exp >= expToNextLevel(level)) {
     exp -= expToNextLevel(level);
     level++;
     maxHp  = Math.round(maxHp  * 1.08);
     atk    = Math.round(atk    * 1.06);
     spd    = Math.round(spd    * 1.04);
   }
+  if (level >= MAX_PET_LEVEL) exp = 0;
   return { ...pet, level, exp, maxHp, atk, spd };
 }

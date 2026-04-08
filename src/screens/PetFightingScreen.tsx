@@ -154,16 +154,10 @@ export default function PetFightingScreen({
 
       if (round.attacker === 'player') {
         shakeAnim(wildShake);
-        setLog((prev) => [
-          ...prev,
-          `${myPet.emoji} attacks for ${round.damage} dmg!`,
-        ]);
+        setLog((prev) => [...prev, `${myPet.name} attacks for ${round.damage} dmg!`]);
       } else {
         shakeAnim(playerShake);
-        setLog((prev) => [
-          ...prev,
-          `${wildPet.template.emoji} attacks for ${round.damage} dmg!`,
-        ]);
+        setLog((prev) => [...prev, `${wildPet.template.name} attacks for ${round.damage} dmg!`]);
       }
 
       setStep((s) => s + 1);
