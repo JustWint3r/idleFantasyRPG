@@ -3,8 +3,10 @@
 //  Zone selection map → spawns 3 random wild pets to choose from.
 // ─────────────────────────────────────────────────────────────
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +15,7 @@ import {
 } from 'react-native';
 import { spawnWildPets } from '../engine/petBattleEngine';
 import {
+  RAINBOW_CYCLE,
   RARITY_COLOR,
   RARITY_LABEL,
   ZONE_BG,
@@ -43,12 +46,33 @@ function WildPetCard({
   wild: WildPetInstance;
   onFight: () => void;
 }) {
-  const color = RARITY_COLOR[wild.template.rarity];
+  const color   = RARITY_COLOR[wild.template.rarity];
+  const isSuper = wild.template.rarity === 'super_legendary';
+
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!isSuper) return;
+    Animated.loop(
+      Animated.timing(anim, { toValue: 1, duration: 2500, useNativeDriver: false }),
+    ).start();
+    return () => anim.stopAnimation();
+  }, [isSuper]);
+
+  const rainbowColor = anim.interpolate({
+    inputRange:  RAINBOW_CYCLE.map((_, i) => i / (RAINBOW_CYCLE.length - 1)),
+    outputRange: RAINBOW_CYCLE,
+  });
+
+  const dynColor = isSuper ? rainbowColor : color;
+
   return (
-    <View style={[styles.wildCard, { borderColor: color }]}>
-      <Text style={styles.wildEmoji}>{wild.template.emoji}</Text>
+    <Animated.View style={[styles.wildCard, { borderColor: dynColor }]}>
+      {wild.template.image
+        ? <Image source={wild.template.image} style={styles.wildImage} />
+        : <Text style={styles.wildEmoji}>{wild.template.emoji}</Text>
+      }
       <View style={{ flex: 1 }}>
-        <Text style={[styles.wildName, { color }]}>{wild.template.name}</Text>
+        <Animated.Text style={[styles.wildName, { color: dynColor }]}>{wild.template.name}</Animated.Text>
         <Text style={styles.wildRarity}>{RARITY_LABEL[wild.template.rarity]}</Text>
         <View style={styles.wildStats}>
           <Text style={styles.wildStat}>HP {wild.maxHp}</Text>
@@ -57,10 +81,12 @@ function WildPetCard({
         </View>
         <Text style={styles.wildDesc} numberOfLines={2}>{wild.template.description}</Text>
       </View>
-      <Pressable style={[styles.fightBtn, { borderColor: color }]} onPress={onFight}>
-        <Text style={[styles.fightBtnText, { color }]}>Fight!</Text>
-      </Pressable>
-    </View>
+      <Animated.View style={[styles.fightBtn, { borderColor: dynColor }]}>
+        <Pressable onPress={onFight}>
+          <Animated.Text style={[styles.fightBtnText, { color: dynColor }]}>Fight!</Animated.Text>
+        </Pressable>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -179,6 +205,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   wildEmoji:  { fontSize: 40 },
+  wildImage:  { width: 56, height: 56 },
   wildName:   { fontSize: 15, fontWeight: '700' },
   wildRarity: { fontSize: 11, color: C.textMuted, marginBottom: 4 },
   wildStats:  { flexDirection: 'row', gap: 8, marginBottom: 4 },

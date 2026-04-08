@@ -24,6 +24,7 @@ interface PetCollectionContextValue {
   setActivePet: (id: string) => void;
   addPet: (pet: OwnedPet) => void;
   upgradePet: (id: string, expGain: number) => void;
+  removePet: (id: string) => void;
 }
 
 const PetCollectionContext = createContext<PetCollectionContextValue | null>(null);
@@ -102,9 +103,19 @@ export function PetCollectionProvider({ children }: { children: React.ReactNode 
     });
   }, [activePetId]);
 
+  const removePet = useCallback((id: string) => {
+    setOwnedPets((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      const newActiveId = activePetId === id ? (next[0]?.id ?? null) : activePetId;
+      setActivePetIdState(newActiveId);
+      persist(next, newActiveId);
+      return next;
+    });
+  }, [activePetId]);
+
   return (
     <PetCollectionContext.Provider
-      value={{ ownedPets, activePetId, isLoaded, setActivePet, addPet, upgradePet }}
+      value={{ ownedPets, activePetId, isLoaded, setActivePet, addPet, upgradePet, removePet }}
     >
       {children}
     </PetCollectionContext.Provider>
