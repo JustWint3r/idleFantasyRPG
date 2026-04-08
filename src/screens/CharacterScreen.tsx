@@ -3,8 +3,9 @@
 //  Fixed character panel on top, scrollable grid inventory below
 // ─────────────────────────────────────────────────────────────
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -24,15 +25,24 @@ import {
   RARITY_LABEL as GEAR_RARITY_LABEL,
   SLOT_ICON,
   SLOT_LABEL,
+  SUPPORT_STONES,
   type GearItem,
   type GearSlot,
+  type UpgradeResult,
 } from '../types/gear.types';
 import {
+  RAINBOW_CYCLE,
   RARITY_COLOR as PET_RARITY_COLOR,
   RARITY_LABEL as PET_RARITY_LABEL,
   type OwnedPet,
 } from '../types/petCollection.types';
-import { calcLoadoutCp, calcLoadoutStats } from '../engine/gearEngine';
+import {
+  attemptUpgrade,
+  previewSuccessChance,
+  previewUpgradeCost,
+  calcLoadoutCp,
+  calcLoadoutStats,
+} from '../engine/gearEngine';
 import { ITEM_TEMPLATES } from '../data/gearTemplates.data';
 import { CURRENCY_META } from '../types/player.types';
 import TalentScreen from './TalentScreen';
@@ -78,6 +88,24 @@ function fmt(n: number): string {
   return String(Math.round(n));
 }
 
+// ── Rainbow animation hook ────────────────────────────────────
+
+function useRainbowBorder(active: boolean): Animated.AnimatedInterpolation<string> {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!active) { anim.setValue(0); return; }
+    const loop = Animated.loop(
+      Animated.timing(anim, { toValue: 1, duration: 2500, useNativeDriver: false }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [active]);
+  return anim.interpolate({
+    inputRange: RAINBOW_CYCLE.map((_, i) => i / (RAINBOW_CYCLE.length - 1)),
+    outputRange: RAINBOW_CYCLE,
+  });
+}
+
 // ── Gear slot button ──────────────────────────────────────────
 
 function GearSlotBtn({ slot, item, onPress }: { slot: GearSlot; item?: GearItem; onPress: () => void }) {
@@ -91,6 +119,29 @@ function GearSlotBtn({ slot, item, onPress }: { slot: GearSlot; item?: GearItem;
         <Text style={styles.slotEmpty} numberOfLines={1}>{SLOT_LABEL[slot]}</Text>
       )}
     </Pressable>
+  );
+}
+
+// ── Pet slot button (character panel) ────────────────────────
+
+function PetSlotBtn({ pet, onPress }: { pet: OwnedPet | null; onPress: () => void }) {
+  const isSuper = pet?.rarity === 'super_legendary';
+  const staticColor = pet ? PET_RARITY_COLOR[pet.rarity] : C.border;
+  const rainbowColor = useRainbowBorder(isSuper);
+  const borderColor = isSuper ? rainbowColor : staticColor;
+  return (
+    <Animated.View style={[styles.slotBtn, { borderColor }]}>
+      <Pressable style={styles.cellInner} onPress={onPress}>
+        {pet?.image ? (
+          <Image source={pet.image} style={styles.petSlotImage} resizeMode="contain" />
+        ) : (
+          <Text style={styles.slotIcon}>{pet ? pet.emoji : '🐾'}</Text>
+        )}
+        <Text style={[styles.slotEmpty, { color: pet ? staticColor : C.textMuted }]} numberOfLines={1}>
+          {pet ? `Lv${pet.level}` : 'Pet'}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -109,23 +160,147 @@ function ItemCell({ item, onPress }: { item: GearItem; onPress: () => void }) {
 }
 
 function PetCell({ pet, isActive, onPress }: { pet: OwnedPet; isActive: boolean; onPress: () => void }) {
-  const color = PET_RARITY_COLOR[pet.rarity] ?? C.textMuted;
+  const isSuper = pet.rarity === 'super_legendary';
+  const staticColor = PET_RARITY_COLOR[pet.rarity] ?? C.textMuted;
+  const rainbowColor = useRainbowBorder(isSuper);
+  const borderColor: Animated.AnimatedInterpolation<string> | string = isSuper ? rainbowColor : staticColor;
   return (
-    <Pressable style={[styles.cell, { borderColor: color }]} onPress={onPress}>
-      <Text style={styles.cellIcon}>{pet.emoji}</Text>
-      <Text style={[styles.cellRarity, { color }]}>{pet.rarity === 'super_legendary' ? 'SL' : pet.rarity.charAt(0).toUpperCase()}</Text>
-      <Text style={styles.cellLevel}>Lv{pet.level}</Text>
-      {isActive && <View style={styles.equippedDot} />}
-    </Pressable>
+    <Animated.View style={[styles.cell, { borderColor }]}>
+      <Pressable style={styles.cellInner} onPress={onPress}>
+        {pet.image ? (
+          <Image source={pet.image} style={styles.petCellImage} resizeMode="contain" />
+        ) : (
+          <Text style={styles.cellIcon}>{pet.emoji}</Text>
+        )}
+        <Text style={[styles.cellRarity, { color: staticColor }]}>{isSuper ? 'SL' : pet.rarity.charAt(0).toUpperCase()}</Text>
+        <Text style={styles.cellLevel}>Lv{pet.level}</Text>
+        {isActive && <View style={styles.equippedDot} />}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// ── Upgrade modal ─────────────────────────────────────────────
+
+function UpgradeModal({
+  item,
+  upgradeScrolls,
+  supportStones,
+  onUpgrade,
+  onClose,
+}: {
+  item: GearItem;
+  upgradeScrolls: number;
+  supportStones: Record<string, number>;
+  onUpgrade: (result: UpgradeResult, stoneId?: string) => void;
+  onClose: () => void;
+}) {
+  const [selectedStoneId, setSelectedStoneId] = useState<string | undefined>();
+  const [lastResult, setLastResult] = useState<UpgradeResult | null>(null);
+
+  const isMaxLevel = item.level >= 25;
+  const stoneBonus = selectedStoneId
+    ? (SUPPORT_STONES.find((s) => s.id === selectedStoneId)?.bonusPercent ?? 0)
+    : 0;
+  const cost = previewUpgradeCost(item);
+  const chance = previewSuccessChance(item, stoneBonus);
+  const rColor = GEAR_RARITY_COLOR[item.rarity];
+  const template = ITEM_TEMPLATES[item.templateId];
+
+  function handleUpgrade() {
+    const result = attemptUpgrade(item, { supportStoneBonus: stoneBonus });
+    setLastResult(result);
+    onUpgrade(result, selectedStoneId);
+  }
+
+  return (
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalCard}>
+        <View style={[styles.modalHeader, { borderBottomColor: rColor + '55' }]}>
+          <Text style={styles.modalIconText}>{SLOT_ICON[item.slot]}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.modalName}>{template?.name ?? item.templateId}</Text>
+            <Text style={[styles.modalRarity, { color: rColor }]}>{GEAR_RARITY_LABEL[item.rarity]} · Lv {item.level}{!isMaxLevel ? ` → ${item.level + 1}` : ' MAX'}</Text>
+          </View>
+          <Text style={[styles.modalLevel, { color: C.gold }]}>+{item.level}</Text>
+        </View>
+
+        {lastResult && (
+          <View style={[styles.upgradeResult, { borderColor: lastResult.outcome !== 'fail' ? C.green : C.red }]}>
+            <Text style={[styles.upgradeResultText, { color: lastResult.outcome !== 'fail' ? C.green : C.red }]}>
+              {lastResult.outcome === 'guaranteed' ? '✓ Upgraded!'
+                : lastResult.outcome === 'success' ? `✓ Success! (${lastResult.chanceRolled}%)`
+                : `✗ Failed (needed ≤${lastResult.chanceFinal}%, rolled ${lastResult.chanceRolled}%)`}
+            </Text>
+          </View>
+        )}
+
+        {!isMaxLevel && (
+          <>
+            <View style={styles.chanceRow}>
+              <Text style={styles.chanceLabel}>Success rate</Text>
+              <Text style={[styles.chanceValue, { color: chance >= 80 ? C.green : chance >= 40 ? C.gold : C.red }]}>
+                {chance}%
+              </Text>
+            </View>
+
+            <View style={styles.costRow}>
+              <Text style={styles.costChip}>🪙 {fmt(cost.gold)}</Text>
+              <Text style={styles.costChip}>⚙️ {cost.mats}</Text>
+              {cost.scrolls > 0 && <Text style={styles.costChip}>📜 {cost.scrolls}</Text>}
+            </View>
+
+            {item.level >= 5 && (
+              <View style={styles.stonesRow}>
+                <Text style={styles.stonesLabel}>Support Stone</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                  <View style={styles.stonesOptions}>
+                    <Pressable
+                      style={[styles.stoneBtn, !selectedStoneId && styles.stoneBtnActive]}
+                      onPress={() => setSelectedStoneId(undefined)}
+                    >
+                      <Text style={styles.stoneBtnText}>None</Text>
+                    </Pressable>
+                    {SUPPORT_STONES.map((s) => {
+                      const count = supportStones[s.id] ?? 0;
+                      return (
+                        <Pressable
+                          key={s.id}
+                          style={[styles.stoneBtn, selectedStoneId === s.id && styles.stoneBtnActive, count === 0 && { opacity: 0.35 }]}
+                          onPress={() => count > 0 && setSelectedStoneId(s.id)}
+                          disabled={count === 0}
+                        >
+                          <Text style={styles.stoneBtnText}>{s.label}</Text>
+                          <Text style={styles.stoneBtnCount}>×{count}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+
+            <Pressable style={styles.upgradeBtn} onPress={handleUpgrade}>
+              <Text style={styles.upgradeBtnText}>Upgrade</Text>
+            </Pressable>
+          </>
+        )}
+
+        <Pressable style={styles.closeBtn} onPress={onClose}>
+          <Text style={styles.closeBtnText}>Close</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
 // ── Inspect modal ─────────────────────────────────────────────
 
-function InspectModal({ item, heroId, onEquip, onClose }: {
+function InspectModal({ item, heroId, onEquip, onUpgrade, onClose }: {
   item: GearItem;
   heroId: string;
   onEquip: () => void;
+  onUpgrade: () => void;
   onClose: () => void;
 }) {
   const rColor = GEAR_RARITY_COLOR[item.rarity];
@@ -151,9 +326,16 @@ function InspectModal({ item, heroId, onEquip, onClose }: {
           {item.stats.critDmg > 0 && <StatRow label="CRIT DMG" value={`${item.stats.critDmg}%`} />}
           <StatRow label="CP" value={String(item.cp)} highlight />
         </View>
-        <Pressable style={[styles.equipBtn, isEquipped && styles.unequipBtn]} onPress={onEquip}>
-          <Text style={[styles.equipBtnText, isEquipped && { color: C.red }]}>{isEquipped ? 'Unequip' : 'Equip'}</Text>
-        </Pressable>
+        <View style={styles.inspectBtnRow}>
+          <Pressable style={[styles.equipBtn, { flex: 1 }, isEquipped && styles.unequipBtn]} onPress={onEquip}>
+            <Text style={[styles.equipBtnText, isEquipped && { color: C.red }]}>{isEquipped ? 'Unequip' : 'Equip'}</Text>
+          </Pressable>
+          {item.level < 25 && (
+            <Pressable style={[styles.upgradeBtn, { flex: 1 }]} onPress={onUpgrade}>
+              <Text style={styles.upgradeBtnText}>Upgrade</Text>
+            </Pressable>
+          )}
+        </View>
         <Pressable style={styles.closeBtn} onPress={onClose}>
           <Text style={styles.closeBtnText}>Close</Text>
         </Pressable>
@@ -189,7 +371,11 @@ function PetInspectModal({
     <View style={styles.modalOverlay}>
       <View style={styles.modalCard}>
         <View style={[styles.modalHeader, { borderBottomColor: rColor + '55' }]}>
-          <Text style={styles.modalIconText}>{pet.emoji}</Text>
+          {pet.image ? (
+            <Image source={pet.image} style={styles.petModalImage} resizeMode="contain" />
+          ) : (
+            <Text style={styles.modalIconText}>{pet.emoji}</Text>
+          )}
           <View style={{ flex: 1 }}>
             <Text style={styles.modalName}>{pet.name}</Text>
             <Text style={[styles.modalRarity, { color: rColor }]}>{PET_RARITY_LABEL[pet.rarity]} · Pet</Text>
@@ -220,10 +406,11 @@ function PetInspectModal({
 // ── Main screen ───────────────────────────────────────────────
 
 export default function CharacterScreen() {
-  const { gearState, equip, unequip } = useGear();
+  const { gearState, equip, unequip, upgrade, applyUpgrade } = useGear();
   const { currencies } = usePlayer();
   const { ownedPets, heroPets, equipPetToHero, unequipPetFromHero } = usePetCollection();
   const [inspecting, setInspecting] = useState<GearItem | null>(null);
+  const [upgrading, setUpgrading] = useState<GearItem | null>(null);
   const [inspectingPet, setInspectingPet] = useState<OwnedPet | null>(null);
   const [showTalent, setShowTalent] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
@@ -237,8 +424,6 @@ export default function CharacterScreen() {
 
   const heroPetId = heroPets[hero.id] ?? null;
   const activePet = ownedPets.find((p) => p.id === heroPetId) ?? null;
-  const petSlotColor = activePet ? PET_RARITY_COLOR[activePet.rarity] : C.border;
-
   const allItems = gearState.items;
   const filteredItems = activeTab === 'all' || activeTab === 'gear' ? allItems : [];
   const filteredPets = activeTab === 'all' || activeTab === 'pets' ? ownedPets : [];
@@ -288,12 +473,7 @@ export default function CharacterScreen() {
             {LEFT_SLOTS.map((slot) => (
               <GearSlotBtn key={slot} slot={slot} item={gear[slot as keyof typeof gear]} onPress={() => openSlot(slot)} />
             ))}
-            <Pressable style={[styles.slotBtn, { borderColor: petSlotColor }]} onPress={() => setActiveTab('pets')}>
-              <Text style={styles.slotIcon}>{activePet ? activePet.emoji : '🐾'}</Text>
-              <Text style={[styles.slotEmpty, activePet && { color: petSlotColor }]} numberOfLines={1}>
-                {activePet ? `Lv${activePet.level}` : 'Pet'}
-              </Text>
-            </Pressable>
+            <PetSlotBtn pet={activePet} onPress={() => setActiveTab('pets')} />
           </View>
 
           {/* Swipeable hero portrait */}
@@ -409,7 +589,30 @@ export default function CharacterScreen() {
       {/* Gear inspect modal */}
       {inspecting && (
         <Modal transparent animationType="fade">
-          <InspectModal item={inspecting} heroId={hero.id} onEquip={handleEquip} onClose={() => setInspecting(null)} />
+          <InspectModal
+            item={inspecting}
+            heroId={hero.id}
+            onEquip={handleEquip}
+            onUpgrade={() => { setUpgrading(inspecting); setInspecting(null); }}
+            onClose={() => setInspecting(null)}
+          />
+        </Modal>
+      )}
+
+      {/* Upgrade modal */}
+      {upgrading && (
+        <Modal transparent animationType="slide">
+          <UpgradeModal
+            item={upgrading}
+            upgradeScrolls={gearState.upgradeScrolls}
+            supportStones={gearState.supportStones}
+            onUpgrade={(result, stoneId) => {
+              applyUpgrade(result, stoneId);
+              // use the updated item from the result directly
+              setUpgrading({ ...result.item });
+            }}
+            onClose={() => setUpgrading(null)}
+          />
         </Modal>
       )}
 
@@ -573,7 +776,11 @@ const styles = StyleSheet.create({
     gap: 2,
     position: 'relative',
   },
+  cellInner: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', gap: 2 },
   cellIcon: { fontSize: 22 },
+  petCellImage: { width: 38, height: 38 },
+  petSlotImage: { width: 42, height: 42 },
+  petModalImage: { width: 48, height: 48 },
   cellRarity: { fontSize: 9, fontWeight: '700' },
   cellLevel: { fontSize: 9, color: C.textMuted },
   equippedDot: {
@@ -656,4 +863,25 @@ const styles = StyleSheet.create({
   },
   talentSheetTitle: { fontSize: 16, fontWeight: '600', color: C.textPrimary },
   talentClose: { fontSize: 18, color: C.textMuted, padding: 4 },
+
+  // Inspect + Upgrade shared
+  inspectBtnRow: { flexDirection: 'row', gap: 8 },
+  upgradeBtn: { backgroundColor: '#1A3A2A', borderRadius: 10, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: C.green },
+  upgradeBtnText: { fontSize: 15, fontWeight: '700', color: C.green },
+
+  // Upgrade modal extras
+  upgradeResult: { borderRadius: 8, borderWidth: 1, padding: 10, alignItems: 'center' },
+  upgradeResultText: { fontSize: 13, fontWeight: '600' },
+  chanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  chanceLabel: { fontSize: 13, color: C.textMuted },
+  chanceValue: { fontSize: 15, fontWeight: '700' },
+  costRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  costChip: { backgroundColor: C.surfaceHigh, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, fontSize: 12, color: C.textMuted },
+  stonesRow: { gap: 4 },
+  stonesLabel: { fontSize: 12, color: C.textMuted },
+  stonesOptions: { flexDirection: 'row', gap: 6 },
+  stoneBtn: { backgroundColor: C.surfaceHigh, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: C.border, alignItems: 'center' },
+  stoneBtnActive: { borderColor: C.gold },
+  stoneBtnText: { fontSize: 11, color: C.textPrimary },
+  stoneBtnCount: { fontSize: 10, color: C.textMuted },
 });
