@@ -216,17 +216,18 @@ function UpgradeModal({
                 <Text style={styles.feedBtnCost}>📖 {amt}</Text>
               </Pressable>
             ))}
+            {pet.level < MAX_PET_LEVEL ? (
+              <Pressable style={styles.feedBtn} onPress={() => feed(expToMax(pet))}>
+                <Text style={styles.feedBtnText}>⚡ Max</Text>
+                <Text style={styles.feedBtnCost}>{expToMax(pet)} EXP</Text>
+              </Pressable>
+            ) : (
+              <View style={[styles.feedBtn, { opacity: 0.5 }]}>
+                <Text style={styles.feedBtnText}>✨ Max</Text>
+                <Text style={styles.feedBtnCost}>Reached!</Text>
+              </View>
+            )}
           </View>
-
-          {pet.level < MAX_PET_LEVEL ? (
-            <Pressable style={styles.maxBtn} onPress={() => feed(expToMax(pet))}>
-              <Text style={styles.maxBtnText}>⚡ Max  (needs {expToMax(pet)} EXP)</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.maxBtn}>
-              <Text style={styles.maxBtnText}>✨ Max Level Reached!</Text>
-            </View>
-          )}
 
           {confirmRelease ? (
             <View style={styles.confirmRow}>
@@ -235,7 +236,7 @@ function UpgradeModal({
                 <Pressable style={styles.confirmYes} onPress={handleRelease}>
                   <Text style={styles.confirmYesText}>Yes, Release</Text>
                 </Pressable>
-                <Pressable style={styles.closeBtn} onPress={() => setConfirmRelease(false)}>
+                <Pressable style={styles.cancelBtn} onPress={() => setConfirmRelease(false)}>
                   <Text style={styles.closeBtnText}>Cancel</Text>
                 </Pressable>
               </View>
@@ -603,6 +604,7 @@ const styles = StyleSheet.create({
   confirmRow: { gap: 8 },
   confirmText: { color: C.textPrimary, fontSize: 14, textAlign: 'center' },
   confirmBtns: { flexDirection: 'row', gap: 10 },
+  cancelBtn: { borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32, alignItems: 'center', borderWidth: 1, borderColor: C.border },
   confirmYes: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: C.red },
   confirmYesText: { color: C.textPrimary, fontSize: 14, fontWeight: '700' },
 
