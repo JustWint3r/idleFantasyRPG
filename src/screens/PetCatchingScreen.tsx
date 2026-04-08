@@ -9,6 +9,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -151,7 +152,24 @@ export default function PetCatchingScreen({
   const [throwing,  setThrowing]  = useState(false);
   const [catchResult, setCatchResult] = useState<boolean | null>(null);
 
-  const color = RARITY_COLOR[wildPet.template.rarity];
+  const color   = RARITY_COLOR[wildPet.template.rarity];
+  const isSuper = wildPet.template.rarity === 'super_legendary';
+
+  const rainbowAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!isSuper) return;
+    Animated.loop(
+      Animated.timing(rainbowAnim, { toValue: 1, duration: 2500, useNativeDriver: false }),
+    ).start();
+    return () => rainbowAnim.stopAnimation();
+  }, [isSuper]);
+
+  const rainbowColor = rainbowAnim.interpolate({
+    inputRange:  RAINBOW_CYCLE.map((_, i) => i / (RAINBOW_CYCLE.length - 1)),
+    outputRange: RAINBOW_CYCLE,
+  });
+
+  const petCardColor = isSuper ? rainbowColor : color;
 
   // Chance bar pulse
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -179,11 +197,14 @@ export default function PetCatchingScreen({
   return (
     <View style={styles.screen}>
       {/* Wild pet display */}
-      <View style={[styles.petCard, { borderColor: color }]}>
-        <Text style={styles.petEmoji}>{wildPet.template.emoji}</Text>
-        <Text style={[styles.petName, { color }]}>{wildPet.template.name}</Text>
+      <Animated.View style={[styles.petCard, { borderColor: petCardColor }]}>
+        {wildPet.template.image
+          ? <Image source={wildPet.template.image} style={styles.petImage} />
+          : <Text style={styles.petEmoji}>{wildPet.template.emoji}</Text>
+        }
+        <Animated.Text style={[styles.petName, { color: petCardColor }]}>{wildPet.template.name}</Animated.Text>
         <Text style={styles.petRarity}>{RARITY_LABEL[wildPet.template.rarity]}</Text>
-      </View>
+      </Animated.View>
 
       {/* Catch rate */}
       <Animated.View
@@ -254,6 +275,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   petEmoji:  { fontSize: 72 },
+  petImage:  { width: 120, height: 120 },
   petName:   { fontSize: 22, fontWeight: '700' },
   petRarity: { fontSize: 13, color: C.textMuted, letterSpacing: 1 },
 

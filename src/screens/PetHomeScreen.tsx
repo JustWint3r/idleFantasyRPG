@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   FlatList,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -120,21 +121,42 @@ function PetListCard({
   isActive: boolean;
   onSelect: () => void;
 }) {
-  const color = RARITY_COLOR[pet.rarity];
+  const color   = RARITY_COLOR[pet.rarity];
+  const isSuper = pet.rarity === 'super_legendary';
+
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!isSuper) return;
+    Animated.loop(
+      Animated.timing(anim, { toValue: 1, duration: 2500, useNativeDriver: false }),
+    ).start();
+    return () => anim.stopAnimation();
+  }, [isSuper]);
+
+  const rainbowColor = anim.interpolate({
+    inputRange:  RAINBOW_CYCLE.map((_, i) => i / (RAINBOW_CYCLE.length - 1)),
+    outputRange: RAINBOW_CYCLE,
+  });
+
+  const nameColor   = isSuper ? rainbowColor : color;
+  const borderColor = isActive ? (isSuper ? rainbowColor : color) : C.border;
+
   return (
-    <Pressable
-      style={[styles.listCard, isActive && { borderColor: color, borderWidth: 2 }]}
-      onPress={onSelect}
-    >
-      <Text style={styles.listEmoji}>{pet.emoji}</Text>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.listName, { color }]}>{pet.name}</Text>
-        <Text style={styles.listMeta}>
-          {RARITY_LABEL[pet.rarity]} · Lv {pet.level}
-        </Text>
-      </View>
-      {isActive && <Text style={[styles.activeTag, { color }]}>Active</Text>}
-    </Pressable>
+    <Animated.View style={[styles.listCard, isActive && { borderWidth: 2 }, { borderColor }]}>
+      <Pressable style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }} onPress={onSelect}>
+        {pet.image
+          ? <Image source={pet.image} style={styles.listImage} />
+          : <Text style={styles.listEmoji}>{pet.emoji}</Text>
+        }
+        <View style={{ flex: 1 }}>
+          <Animated.Text style={[styles.listName, { color: nameColor }]}>{pet.name}</Animated.Text>
+          <Text style={styles.listMeta}>
+            {RARITY_LABEL[pet.rarity]} · Lv {pet.level}
+          </Text>
+        </View>
+        {isActive && <Animated.Text style={[styles.activeTag, { color: nameColor }]}>Active</Animated.Text>}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -149,20 +171,37 @@ function UpgradeModal({
   visible: boolean;
   onClose: () => void;
 }) {
-  const { upgradePet } = usePetCollection();
+  const { upgradePet, removePet } = usePetCollection();
   const needed = expToNextLevel(pet.level);
+  const [confirmRelease, setConfirmRelease] = useState(false);
 
   function feed(amount: number) {
     upgradePet(pet.id, amount);
   }
 
+  function handleRelease() {
+    removePet(pet.id);
+    setConfirmRelease(false);
+    onClose();
+  }
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.upgradeCard} onPress={() => {}}>
+      <View style={styles.backdrop}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={StyleSheet.absoluteFill} />
+        </TouchableWithoutFeedback>
+
+        <View style={styles.upgradeCard}>
           <Text style={styles.upgradeTitle}>Feed Pet</Text>
+          <View style={{ alignItems: 'center' }}>
+            {pet.image
+              ? <Image source={pet.image} style={styles.upgradePetImage} />
+              : <Text style={{ fontSize: 40 }}>{pet.emoji}</Text>
+            }
+          </View>
           <Text style={styles.upgradeSub}>
-            {pet.emoji}  {pet.name} · Lv {pet.level}
+            {pet.name} · Lv {pet.level}
           </Text>
           <Text style={styles.upgradeSub}>
             EXP  {pet.exp} / {needed}
@@ -177,11 +216,29 @@ function UpgradeModal({
             ))}
           </View>
 
-          <Pressable style={styles.closeBtn} onPress={onClose}>
+          {confirmRelease ? (
+            <View style={styles.confirmRow}>
+              <Text style={styles.confirmText}>Release {pet.name}?</Text>
+              <View style={styles.confirmBtns}>
+                <Pressable style={styles.confirmYes} onPress={handleRelease}>
+                  <Text style={styles.confirmYesText}>Yes, Release</Text>
+                </Pressable>
+                <Pressable style={styles.closeBtn} onPress={() => setConfirmRelease(false)}>
+                  <Text style={styles.closeBtnText}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable style={styles.releaseBtn} onPress={() => setConfirmRelease(true)}>
+              <Text style={styles.releaseBtnText}>Release Pet</Text>
+            </Pressable>
+          )}
+
+          <Pressable android_ripple={null} style={styles.closeBtn} onPress={onClose}>
             <Text style={styles.closeBtnText}>Close</Text>
           </Pressable>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -197,26 +254,48 @@ function GalleryRow({
   template: PetTemplate;
   owned: OwnedPet | undefined;
 }) {
-  const color = RARITY_COLOR[template.rarity];
+  const color   = RARITY_COLOR[template.rarity];
   const isOwned = !!owned;
+  const isSuper = template.rarity === 'super_legendary';
+
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!isSuper || !isOwned) return;
+    Animated.loop(
+      Animated.timing(anim, { toValue: 1, duration: 2500, useNativeDriver: false }),
+    ).start();
+    return () => anim.stopAnimation();
+  }, [isSuper, isOwned]);
+
+  const rainbowColor = anim.interpolate({
+    inputRange:  RAINBOW_CYCLE.map((_, i) => i / (RAINBOW_CYCLE.length - 1)),
+    outputRange: RAINBOW_CYCLE,
+  });
+
+  const nameColor   = isOwned ? (isSuper ? rainbowColor   : color) : C.textMuted;
+  const borderColor = isOwned ? (isSuper ? rainbowColor   : color) : C.border;
+  const badgeColor  = isSuper ? rainbowColor : color;
 
   return (
-    <View style={[styles.galleryRow, { borderColor: isOwned ? color : C.border, opacity: isOwned ? 1 : 0.45 }]}>
-      <Text style={styles.galleryEmoji}>{isOwned ? template.emoji : '❓'}</Text>
+    <Animated.View style={[styles.galleryRow, { borderColor, opacity: isOwned ? 1 : 0.45 }]}>
+      {isOwned && template.image
+        ? <Image source={template.image} style={styles.galleryImage} />
+        : <Text style={styles.galleryEmoji}>{isOwned ? template.emoji : '❓'}</Text>
+      }
       <View style={{ flex: 1 }}>
-        <Text style={[styles.galleryName, { color: isOwned ? color : C.textMuted }]}>
+        <Animated.Text style={[styles.galleryName, { color: nameColor }]}>
           {isOwned ? template.name : '??? Unknown'}
-        </Text>
+        </Animated.Text>
         <Text style={styles.galleryMeta}>
           {RARITY_LABEL[template.rarity]}
           {isOwned ? `  ·  Lv ${owned!.level}` : '  ·  Not caught yet'}
         </Text>
       </View>
       {isOwned
-        ? <Text style={[styles.galleryBadge, { color }]}>Owned</Text>
+        ? <Animated.Text style={[styles.galleryBadge, { color: badgeColor }]}>Owned</Animated.Text>
         : <Text style={styles.galleryLock}>🔒</Text>
       }
-    </View>
+    </Animated.View>
   );
 }
 
@@ -307,7 +386,10 @@ export default function PetHomeScreen({ onCatch }: { onCatch: () => void }) {
       {/* Active pet card — compact, fixed size */}
       <RarityCard rarity={activePet.rarity} style={styles.activePetCard}>
         <View style={styles.activePetRow}>
-          <Text style={styles.activePetEmoji}>{activePet.emoji}</Text>
+          {activePet.image
+            ? <Image source={activePet.image} style={styles.activePetImage} />
+            : <Text style={styles.activePetEmoji}>{activePet.emoji}</Text>
+          }
           <View style={styles.activePetInfo}>
             <Text style={[styles.activePetName, { color: rColor }]}>{activePet.name}</Text>
             <Text style={styles.activePetRarity}>{RARITY_LABEL[activePet.rarity]}</Text>
@@ -404,6 +486,7 @@ const styles = StyleSheet.create({
   activePetCard: { padding: 18, gap: 12, minHeight: 180 },
   activePetRow:  { flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1 },
   activePetEmoji:{ fontSize: 72 },
+  activePetImage:{ width: 72, height: 72 },
   activePetInfo: { flex: 1, gap: 2 },
   activePetName: { fontSize: 17, fontWeight: '700' },
   activePetRarity:{ fontSize: 11, color: C.textMuted, letterSpacing: 1, marginBottom: 4 },
@@ -441,6 +524,7 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   listEmoji: { fontSize: 24 },
+  listImage: { width: 32, height: 32 },
   listName:  { fontSize: 13, fontWeight: '600' },
   listMeta:  { fontSize: 10, color: C.textMuted, marginTop: 1 },
   activeTag: { fontSize: 10, fontWeight: '600' },
@@ -499,6 +583,14 @@ const styles = StyleSheet.create({
   feedBtnCost: { color: C.textMuted,   fontSize: 11 },
   closeBtn: { borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: C.border },
   closeBtnText: { color: C.textMuted, fontSize: 14 },
+  upgradePetImage: { width: 72, height: 72 },
+  releaseBtn: { borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: C.red },
+  releaseBtnText: { color: C.red, fontSize: 14 },
+  confirmRow: { gap: 8 },
+  confirmText: { color: C.textPrimary, fontSize: 14, textAlign: 'center' },
+  confirmBtns: { flexDirection: 'row', gap: 10 },
+  confirmYes: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: C.red },
+  confirmYesText: { color: C.textPrimary, fontSize: 14, fontWeight: '700' },
 
   // ── Gallery ────────────────────────────────────────────────
   galleryProgressWrap: {
@@ -518,6 +610,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   galleryEmoji:  { fontSize: 26 },
+  galleryImage:  { width: 36, height: 36 },
   galleryName:   { fontSize: 13, fontWeight: '600' },
   galleryMeta:   { fontSize: 10, color: C.textMuted, marginTop: 2 },
   galleryBadge:  { fontSize: 10, fontWeight: '700' },
