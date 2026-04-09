@@ -6,6 +6,7 @@
     "esModuleInterop": true,
     "strict": false,
     "outDir": "./dist",
-    "rootDir": "./"
+    "rootDir": "..",
+    "ignoreDeprecations": "6.0"
   }
 }
