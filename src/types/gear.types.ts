@@ -40,7 +40,6 @@ export type GearSlot =
   | 'armor'
   | 'helmet'
   | 'ring'
-  | 'accessory'
   | 'boots'
   | 'necklace'
   | 'pet';
@@ -50,7 +49,6 @@ export const GEAR_SLOTS: GearSlot[] = [
   'armor',
   'helmet',
   'ring',
-  'accessory',
   'boots',
   'necklace',
   'pet',
@@ -61,7 +59,6 @@ export const SLOT_LABEL: Record<GearSlot, string> = {
   armor: 'Armor',
   helmet: 'Helmet',
   ring: 'Ring',
-  accessory: 'Accessory',
   boots: 'Boots',
   necklace: 'Necklace',
   pet: 'Pet',
@@ -72,7 +69,6 @@ export const SLOT_ICON: Record<GearSlot, string> = {
   armor: '🛡️',
   helmet: '⛑️',
   ring: '💍',
-  accessory: '🔮',
   boots: '👟',
   necklace: '📿',
   pet: '🐾',
