@@ -7,6 +7,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { usePetCollection } from '../context/PetCollectionContext';
-import { simulateBattle } from '../engine/petBattleEngine';
+import { PET_TEMPLATES, simulateBattle } from '../engine/petBattleEngine';
 import {
   RARITY_COLOR,
   RARITY_LABEL,
@@ -63,6 +64,7 @@ function HpBar({ current, max, color }: { current: number; max: number; color: s
 
 function FighterCard({
   emoji,
+  image,
   name,
   rarity,
   currentHp,
@@ -71,6 +73,7 @@ function FighterCard({
   shake,
 }: {
   emoji: string;
+  image?: number;
   name: string;
   rarity: string;
   currentHp: number;
@@ -85,7 +88,10 @@ function FighterCard({
   return (
     <Animated.View style={[styles.fighterCard, { transform: [{ translateX: shake }] }]}>
       <Text style={styles.fighterLabel}>{label}</Text>
-      <Text style={styles.fighterEmoji}>{emoji}</Text>
+      {image
+        ? <Image source={image} style={styles.fighterImage} />
+        : <Text style={styles.fighterEmoji}>{emoji}</Text>
+      }
       <Text style={[styles.fighterName, { color }]}>{name}</Text>
       <Text style={styles.fighterRarity}>{RARITY_LABEL[rarity as keyof typeof RARITY_LABEL]}</Text>
       <HpBar current={currentHp} max={maxHp} color={hpColor} />
@@ -148,16 +154,10 @@ export default function PetFightingScreen({
 
       if (round.attacker === 'player') {
         shakeAnim(wildShake);
-        setLog((prev) => [
-          ...prev,
-          `${myPet.emoji} attacks for ${round.damage} dmg!`,
-        ]);
+        setLog((prev) => [...prev, `${myPet.name} attacks for ${round.damage} dmg!`]);
       } else {
         shakeAnim(playerShake);
-        setLog((prev) => [
-          ...prev,
-          `${wildPet.template.emoji} attacks for ${round.damage} dmg!`,
-        ]);
+        setLog((prev) => [...prev, `${wildPet.template.name} attacks for ${round.damage} dmg!`]);
       }
 
       setStep((s) => s + 1);
@@ -186,6 +186,7 @@ export default function PetFightingScreen({
       <View style={styles.fightersRow}>
         <FighterCard
           emoji={wildPet.template.emoji}
+          image={wildPet.template.image}
           name={wildPet.template.name}
           rarity={wildPet.template.rarity}
           currentHp={wildHp}
@@ -196,6 +197,7 @@ export default function PetFightingScreen({
         <Text style={styles.vsText}>VS</Text>
         <FighterCard
           emoji={myPet.emoji}
+          image={PET_TEMPLATES.find((t) => t.id === myPet.templateId)?.image}
           name={myPet.name}
           rarity={myPet.rarity}
           currentHp={playerHp}
@@ -272,6 +274,7 @@ const styles = StyleSheet.create({
   },
   fighterLabel: { fontSize: 10, color: C.textMuted, letterSpacing: 1, textTransform: 'uppercase' },
   fighterEmoji: { fontSize: 48 },
+  fighterImage: { width: 64, height: 64 },
   fighterName:  { fontSize: 13, fontWeight: '700', textAlign: 'center' },
   fighterRarity:{ fontSize: 10, color: C.textMuted },
   hpBarWrap: { width: '100%', height: 8, backgroundColor: C.border, borderRadius: 4, overflow: 'hidden', marginTop: 6 },

@@ -1,10 +1,17 @@
 // ─────────────────────────────────────────────────────────────
-//  FarmScreen.tsx  (updated — includes FarmScene + gear CP)
+//  FarmScreen.tsx
+//  Layout based on design mockup:
+//   • Fighting Area (top, FarmScene animated)
+//   • Player Stats + Currencies strip
+//   • Bottom row: Chat/Loot feed (left) + Zone & Pet buttons (right)
 // ─────────────────────────────────────────────────────────────
 
 import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
+  Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,6 +34,8 @@ import { useGear } from '../context/GearContext';
 import { farmItemsToGearItems } from '../engine/farmConverter';
 import { usePlayer } from '../context/PlayerContext';
 
+const { height: SH } = Dimensions.get('window');
+
 const C = {
   bg: '#0F0E1A',
   surface: '#1A1830',
@@ -39,266 +48,216 @@ const C = {
   purple: '#A78BFA',
   blue: '#60A5FA',
   orange: '#FB923C',
+  red: '#F87171',
 } as const;
 
-const MOCK_HERO: DeployedHero = {
-  id: 'hero_001',
-  name: 'Aria the Swift',
-  level: 42,
-  stars: 3,
-  combatPower: 3800,
-  zoneId: 'zone_darkwood',
-  deployedAt: Date.now(),
+// ── Mock heroes available to deploy ──────────────────────────
+
+const MOCK_HEROES: DeployedHero[] = [
+  { id: 'hero_001', name: 'Aria the Swift',   level: 42, stars: 3, combatPower: 3800, zoneId: '', deployedAt: 0 },
+  { id: 'hero_002', name: 'Kael the Dark',    level: 38, stars: 2, combatPower: 2800, zoneId: '', deployedAt: 0 },
+  { id: 'hero_003', name: 'Selene the Sage',  level: 55, stars: 4, combatPower: 6200, zoneId: '', deployedAt: 0 },
+];
+
+const HERO_IMAGES: Record<string, ReturnType<typeof require>> = {
+  hero_001: require('../../assets/aria.png'),
+  hero_003: require('../../assets/selene.png'),
 };
 
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
-}
+// ── Helpers ───────────────────────────────────────────────────
 
-function formatGold(n: number): string {
+function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(Math.floor(n));
 }
 
-function starsLabel(count: number): string {
-  return '★'.repeat(count) + '☆'.repeat(Math.max(0, 6 - count));
+function starsLabel(n: number) {
+  return '★'.repeat(n) + '☆'.repeat(Math.max(0, 6 - n));
 }
 
+const DROP_COLORS: Record<string, string> = {
+  common: C.textMuted, rare: C.blue, epic: C.purple, legendary: C.orange,
+};
+
+const ZONE_ICONS: Record<string, string> = {
+  zone_meadow: '🌿',
+  zone_darkwood: '🌲',
+  zone_dragon_peaks: '🐉',
+};
+
+// ── Offline claim banner ──────────────────────────────────────
+
 function OfflineBanner({
-  heroName,
-  zoneName,
-  durationSeconds,
-  wasCapped,
-  resources,
-  items,
-  onClaim,
+  heroName, zoneName, durationSeconds, wasCapped, resources, items, onClaim,
 }: {
-  heroName: string;
-  zoneName: string;
-  durationSeconds: number;
-  wasCapped: boolean;
-  resources: Resources;
-  items: Item[];
-  onClaim: () => void;
+  heroName: string; zoneName: string; durationSeconds: number; wasCapped: boolean;
+  resources: Resources; items: Item[]; onClaim: () => void;
 }) {
+  const h = Math.floor(durationSeconds / 3600);
+  const m = Math.floor((durationSeconds % 3600) / 60);
+  const dur = h > 0 ? `${h}h ${m}m` : `${m}m`;
   return (
     <View style={styles.offlineBanner}>
-      <View style={styles.offlineHeader}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         <Text style={styles.offlineTitle}>Welcome back!</Text>
-        {wasCapped && <Text style={styles.offlineCap}>⚠ Loot cap reached</Text>}
+        {wasCapped && <Text style={{ fontSize: 11, color: C.orange }}>⚠ Cap reached</Text>}
       </View>
-      <Text style={styles.offlineSub}>
-        {heroName} farmed{' '}
-        <Text style={{ color: C.textPrimary }}>{zoneName}</Text> for{' '}
-        <Text style={{ color: C.textPrimary }}>
-          {formatDuration(durationSeconds)}
-        </Text>
-      </Text>
-      <View style={styles.offlineLoot}>
-        {resources.gold > 0 && (
-          <Text style={styles.offlineLootItem}>
-            <Text style={{ color: C.gold }}>⬡ </Text>
-            {formatGold(resources.gold)} gold
-          </Text>
-        )}
-        {resources.xpBooks > 0 && (
-          <Text style={styles.offlineLootItem}>
-            <Text style={{ color: C.blue }}>📖 </Text>
-            {resources.xpBooks} XP books
-          </Text>
-        )}
-        {resources.craftMats > 0 && (
-          <Text style={styles.offlineLootItem}>
-            <Text style={{ color: C.green }}>⚙ </Text>
-            {resources.craftMats} craft mats
-          </Text>
-        )}
-        {resources.summonScrolls > 0 && (
-          <Text style={styles.offlineLootItem}>
-            <Text style={{ color: C.purple }}>✦ </Text>
-            {resources.summonScrolls} scrolls
-          </Text>
-        )}
-        {items.length > 0 && (
-          <Text style={styles.offlineLootItem}>
-            <Text style={{ color: C.orange }}>⚔ </Text>
-            {items.length} item{items.length !== 1 ? 's' : ''}
-          </Text>
-        )}
+      <Text style={styles.offlineSub}>{heroName} farmed <Text style={{ color: C.textPrimary }}>{zoneName}</Text> for <Text style={{ color: C.textPrimary }}>{dur}</Text></Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+        {resources.gold > 0 && <Text style={styles.offlineChip}>🪙 {fmt(resources.gold)}</Text>}
+        {resources.xpBooks > 0 && <Text style={styles.offlineChip}>📖 {resources.xpBooks}</Text>}
+        {resources.craftMats > 0 && <Text style={styles.offlineChip}>⚙️ {resources.craftMats}</Text>}
+        {resources.summonScrolls > 0 && <Text style={styles.offlineChip}>✦ {resources.summonScrolls}</Text>}
+        {items.length > 0 && <Text style={styles.offlineChip}>⚔️ {items.length} items</Text>}
       </View>
-      <Pressable
-        style={({ pressed }) => [styles.claimBtn, pressed && { opacity: 0.75 }]}
-        onPress={onClaim}
-      >
-        <Text style={styles.claimBtnText}>Collect loot</Text>
+      <Pressable style={styles.claimBtn} onPress={onClaim}>
+        <Text style={styles.claimBtnText}>Collect Loot</Text>
       </Pressable>
     </View>
   );
 }
 
-function HeroCard({
-  hero,
-  zone,
-  sessionGold,
-  totalCp,
-  onUndeploy,
-}: {
-  hero: DeployedHero;
-  zone: FarmZone;
-  sessionGold: number;
-  totalCp: number;
-  onUndeploy: () => void;
-}) {
-  return (
-    <View style={styles.heroCard}>
-      <View style={styles.heroRow}>
-        <View style={styles.heroAvatar}>
-          <Text style={styles.heroAvatarText}>{hero.name.charAt(0)}</Text>
-        </View>
-        <View style={styles.heroInfo}>
-          <Text style={styles.heroName}>{hero.name}</Text>
-          <Text style={styles.heroStars}>{starsLabel(hero.stars)}</Text>
-          <Text style={styles.heroLevel}>
-            Lv {hero.level} · CP {totalCp.toLocaleString()}
-          </Text>
-        </View>
-        <Pressable
-          style={({ pressed }) => [
-            styles.recallBtn,
-            pressed && { opacity: 0.6 },
-          ]}
-          onPress={onUndeploy}
-        >
-          <Text style={styles.recallBtnText}>Recall</Text>
-        </Pressable>
-      </View>
-      <View style={styles.zonePill}>
-        <Text style={styles.zonePillText}>📍 {zone.name}</Text>
-        <Text style={styles.zonePillGph}>
-          ~{formatGold(estimateGoldPerHour(zone))}/hr
-        </Text>
-      </View>
-      <View style={styles.sessionRow}>
-        <Text style={styles.sessionLabel}>This session</Text>
-        <Text style={styles.sessionGold}>+{formatGold(sessionGold)} gold</Text>
-      </View>
-    </View>
-  );
-}
+// ── Zone picker modal ─────────────────────────────────────────
 
-function ZoneSelector({
-  eligibleZones,
-  currentZoneId,
-  onSelect,
+function ZonePickerModal({
+  visible, eligibleZones, currentZoneId, onSelect, onClose,
 }: {
-  eligibleZones: FarmZone[];
-  currentZoneId: string | undefined;
-  onSelect: (z: FarmZone) => void;
+  visible: boolean; eligibleZones: FarmZone[]; currentZoneId?: string;
+  onSelect: (z: FarmZone) => void; onClose: () => void;
 }) {
   return (
-    <View>
-      <Text style={styles.sectionLabel}>Farm zones</Text>
-      {FARM_ZONES.map((zone) => {
-        const eligible = eligibleZones.some((z) => z.id === zone.id);
-        const active = zone.id === currentZoneId;
-        return (
-          <Pressable
-            key={zone.id}
-            style={[
-              styles.zoneCard,
-              active && styles.zoneCardActive,
-              !eligible && styles.zoneCardLocked,
-            ]}
-            onPress={() => eligible && onSelect(zone)}
-            disabled={!eligible}
-          >
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[styles.zoneName, !eligible && { color: C.textMuted }]}
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalSheet} onPress={() => {}}>
+          <Text style={styles.modalTitle}>Select Zone</Text>
+          {FARM_ZONES.map((zone) => {
+            const eligible = eligibleZones.some((z) => z.id === zone.id);
+            const active = zone.id === currentZoneId;
+            return (
+              <Pressable
+                key={zone.id}
+                style={[styles.zoneRow, active && styles.zoneRowActive, !eligible && styles.zoneRowLocked]}
+                onPress={() => { if (eligible) { onSelect(zone); onClose(); } }}
+                disabled={!eligible}
               >
-                {zone.name}
-                {active ? '  ✦ active' : ''}
-              </Text>
-              <Text style={styles.zoneDesc}>{zone.description}</Text>
-              <Text style={styles.zoneStats}>
-                Min CP {zone.minCombatPower.toLocaleString()}
-                {'  ·  '}~{formatGold(estimateGoldPerHour(zone))}/hr{'  ·  '}
-                Cap {zone.offlineCapHours}h
-              </Text>
-            </View>
-            {!eligible && <Text style={styles.lockIcon}>🔒</Text>}
+                <Text style={styles.zoneRowIcon}>{ZONE_ICONS[zone.id] ?? '🗺️'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.zoneRowName, !eligible && { color: C.textMuted }]}>
+                    {zone.name}{active ? '  ✦' : ''}
+                  </Text>
+                  <Text style={styles.zoneRowDesc}>{zone.description}</Text>
+                  <Text style={styles.zoneRowStats}>
+                    Min CP {zone.minCombatPower.toLocaleString()} · ~{fmt(estimateGoldPerHour(zone))}/hr · Cap {zone.offlineCapHours}h
+                  </Text>
+                </View>
+                {!eligible && <Text>🔒</Text>}
+              </Pressable>
+            );
+          })}
+          <Pressable style={styles.modalClose} onPress={onClose}>
+            <Text style={{ color: C.textMuted, fontSize: 14 }}>Close</Text>
           </Pressable>
-        );
-      })}
-    </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
-function LootFeed({ items }: { items: Item[] }) {
-  if (items.length === 0) return null;
-  const recent = [...items].reverse().slice(0, 10);
-  const RARITY_COLOR: Record<string, string> = {
-    common: C.textMuted,
-    rare: C.blue,
-    epic: C.purple,
-    legendary: C.orange,
-  };
+// ── Hero picker modal ─────────────────────────────────────────
+
+function HeroPickerModal({
+  visible, currentHeroId, onSelect, onClose,
+}: {
+  visible: boolean; currentHeroId?: string; onSelect: (h: DeployedHero) => void; onClose: () => void;
+}) {
   return (
-    <View>
-      <Text style={styles.sectionLabel}>Recent drops</Text>
-      {recent.map((item, i) => (
-        <View key={item.id + i} style={styles.lootRow}>
-          <Text
-            style={[
-              styles.lootRarity,
-              { color: RARITY_COLOR[item.rarity] ?? C.textMuted },
-            ]}
-          >
-            ◆
-          </Text>
-          <Text style={styles.lootName}>
-            {item.templateId.replace(/_/g, ' ')}
-          </Text>
-          <Text
-            style={[
-              styles.lootRarityLabel,
-              { color: RARITY_COLOR[item.rarity] ?? C.textMuted },
-            ]}
-          >
-            {item.rarity}
-          </Text>
-        </View>
-      ))}
-    </View>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalSheet} onPress={() => {}}>
+          <Text style={styles.modalTitle}>Select Hero</Text>
+          {MOCK_HEROES.map((hero) => {
+            const active = hero.id === currentHeroId;
+            return (
+              <Pressable
+                key={hero.id}
+                style={[styles.heroPickRow, active && styles.zoneRowActive]}
+                onPress={() => { onSelect(hero); onClose(); }}
+              >
+                <View style={styles.heroPickAvatar}>
+                  {HERO_IMAGES[hero.id]
+                    ? <Image source={HERO_IMAGES[hero.id]} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                    : <Text style={{ fontSize: 18, color: C.purple }}>{hero.name.charAt(0)}</Text>}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.heroPickName}>{hero.name}{active ? '  ✦' : ''}</Text>
+                  <Text style={styles.heroPickSub}>Lv {hero.level} · {starsLabel(hero.stars)} · CP {hero.combatPower.toLocaleString()}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+          <Pressable style={styles.modalClose} onPress={onClose}>
+            <Text style={{ color: C.textMuted, fontSize: 14 }}>Close</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
+
+// ── Coming Soon modal (Events / Dungeons) ────────────────────
+
+function ComingSoonModal({
+  visible, title, onClose,
+}: {
+  visible: boolean; title: string; onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalSheet} onPress={() => {}}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <View style={{ alignItems: 'center', paddingVertical: 32, gap: 10 }}>
+            <Text style={{ fontSize: 48 }}>{title === 'Events' ? '🎉' : '⚔️'}</Text>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: C.textPrimary }}>Coming Soon</Text>
+            <Text style={{ fontSize: 13, color: C.textMuted, textAlign: 'center', lineHeight: 20 }}>
+              {title === 'Events'
+                ? 'Limited-time events with exclusive rewards are on the way!'
+                : 'Challenging dungeons with powerful bosses are being crafted!'}
+            </Text>
+          </View>
+          <Pressable style={styles.modalClose} onPress={onClose}>
+            <Text style={{ color: C.textMuted, fontSize: 14 }}>Close</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// ── Main screen ───────────────────────────────────────────────
 
 export default function FarmScreen() {
   const {
-    farmState,
-    offlineSummary,
-    isLoaded,
-    sessionResources,
-    sessionItems,
-    deployHero,
-    undeployHero,
-    claimOfflineLoot,
+    farmState, offlineSummary, isLoaded,
+    sessionResources, sessionItems,
+    deployHero, undeployHero, claimOfflineLoot,
   } = useFarmLoop();
 
   const { getHeroCp, addItems } = useGear();
   const { addCurrencies } = usePlayer();
 
   const [lastResult, setLastResult] = useState<FarmResult | null>(null);
+  const [showZonePicker, setShowZonePicker] = useState(false);
+  const [showHeroPicker, setShowHeroPicker] = useState(false);
+  const [showEvents, setShowEvents] = useState(false);
+  const [showDungeons, setShowDungeons] = useState(false);
+  const [selectedHero, setSelectedHero] = useState<DeployedHero>(MOCK_HEROES[0]);
+
   const prevItemCount = useRef(sessionItems.length);
   const prevSyncedResources = useRef({ gold: 0, craftMats: 0, summonScrolls: 0, xpBooks: 0 });
 
-  // Live currency update — fires every farm tick via sessionResources change
+  // Live currency sync
   React.useEffect(() => {
     const delta = {
       gold: sessionResources.gold - prevSyncedResources.current.gold,
@@ -309,46 +268,42 @@ export default function FarmScreen() {
     if (delta.gold > 0 || delta.craftMats > 0 || delta.summonScrolls > 0 || delta.xpBooks > 0) {
       addCurrencies(delta);
     }
-    prevSyncedResources.current = {
-      gold: sessionResources.gold,
-      craftMats: sessionResources.craftMats,
-      summonScrolls: sessionResources.summonScrolls,
-      xpBooks: sessionResources.xpBooks,
-    };
+    prevSyncedResources.current = { ...sessionResources };
   }, [sessionResources.gold, sessionResources.craftMats, sessionResources.summonScrolls, sessionResources.xpBooks]);
 
-  // Item drop — only handles gear inventory, currencies handled above
+  // Item drops
   React.useEffect(() => {
     if (sessionItems.length > prevItemCount.current) {
       const newItems = sessionItems.slice(prevItemCount.current);
-      setLastResult({
-        durationSeconds: 60,
-        resources: sessionResources,
-        items: newItems,
-        rollCount: 1,
-      });
+      setLastResult({ durationSeconds: 60, resources: sessionResources, items: newItems, rollCount: 1 });
       addItems(farmItemsToGearItems(newItems));
     }
     prevItemCount.current = sessionItems.length;
   }, [sessionItems.length]);
 
   const hero = farmState.deployedHero;
-  const totalHeroCp = getHeroCp('hero_001', MOCK_HERO.combatPower);
+  const totalHeroCp = getHeroCp(selectedHero.id, selectedHero.combatPower);
   const eligibleZones = getEligibleZones(totalHeroCp);
-  const currentZone = hero
-    ? (FARM_ZONES.find((z) => z.id === hero.zoneId) ?? null)
-    : null;
+  const currentZone = hero ? (FARM_ZONES.find((z) => z.id === hero.zoneId) ?? null) : null;
 
-  const handleDeploy = useCallback(
-    (zone: FarmZone) => {
-      try {
-        deployHero({ ...MOCK_HERO, zoneId: zone.id }, zone);
-      } catch (e: any) {
-        console.warn('Deploy failed:', e.message);
-      }
-    },
-    [deployHero],
-  );
+  const handleDeploy = useCallback((zone: FarmZone) => {
+    try {
+      deployHero({ ...selectedHero, zoneId: zone.id, deployedAt: Date.now() }, zone);
+    } catch (e: any) {
+      console.warn('Deploy failed:', e.message);
+    }
+  }, [deployHero, selectedHero]);
+
+  const handleHeroSelect = useCallback((h: DeployedHero) => {
+    setSelectedHero(h);
+    // If currently farming, redeploy with new hero in same zone
+    if (hero && currentZone) {
+      undeployHero();
+      setTimeout(() => {
+        deployHero({ ...h, zoneId: currentZone.id, deployedAt: Date.now() }, currentZone);
+      }, 100);
+    }
+  }, [hero, currentZone, deployHero, undeployHero]);
 
   if (!isLoaded) {
     return (
@@ -358,204 +313,318 @@ export default function FarmScreen() {
     );
   }
 
+  const recentDrops = [...sessionItems].reverse().slice(0, 8);
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <FarmScene hero={hero} zone={currentZone} lastResult={lastResult} />
+    <View style={styles.screen}>
 
-      {offlineSummary && (
-        <OfflineBanner
-          heroName={offlineSummary.heroName}
-          zoneName={offlineSummary.zoneName}
-          durationSeconds={offlineSummary.durationSeconds}
-          wasCapped={offlineSummary.wasCapped}
-          resources={offlineSummary.result.resources}
-          items={offlineSummary.result.items}
-          onClaim={() => {
-            const claimed = claimOfflineLoot();
-            // Push items to gear inventory
-            if (claimed?.items?.length) {
-              addItems(farmItemsToGearItems(claimed.items));
-            }
-            // Push resources to player currencies
-            addCurrencies({
-              gold: claimed?.gold ?? 0,
-              craftMats: claimed?.craftMats ?? 0,
-              summonScrolls: claimed?.summonScrolls ?? 0,
-              xpBooks: claimed?.xpBooks ?? 0,
-            });
-          }}
-        />
-      )}
+      {/* ── 1. Fighting Area ── */}
+      <View style={styles.fightingArea}>
+        <FarmScene hero={hero} zone={currentZone} lastResult={lastResult} />
+        {offlineSummary && (
+          <View style={styles.offlineOverlay}>
+            <OfflineBanner
+              heroName={offlineSummary.heroName}
+              zoneName={offlineSummary.zoneName}
+              durationSeconds={offlineSummary.durationSeconds}
+              wasCapped={offlineSummary.wasCapped}
+              resources={offlineSummary.result.resources}
+              items={offlineSummary.result.items}
+              onClaim={() => {
+                const claimed = claimOfflineLoot();
+                if (claimed?.items?.length) addItems(farmItemsToGearItems(claimed.items));
+                addCurrencies({
+                  gold: claimed?.gold ?? 0,
+                  craftMats: claimed?.craftMats ?? 0,
+                  summonScrolls: claimed?.summonScrolls ?? 0,
+                  xpBooks: claimed?.xpBooks ?? 0,
+                });
+              }}
+            />
+          </View>
+        )}
+      </View>
 
-      {hero && currentZone ? (
-        <HeroCard
-          hero={hero}
-          zone={currentZone}
-          sessionGold={sessionResources.gold}
-          totalCp={totalHeroCp}
-          onUndeploy={undeployHero}
-        />
-      ) : (
-        <View style={styles.noHero}>
-          <Text style={styles.noHeroText}>No hero deployed</Text>
-          <Text style={styles.noHeroSub}>
-            Select a zone below to start farming
+      {/* ── 2. Player Stats + Currencies strip ── */}
+      <View style={styles.statsStrip}>
+        <Pressable style={styles.heroStripBtn} onPress={() => setShowHeroPicker(true)}>
+          <View style={styles.heroStripAvatar}>
+            {HERO_IMAGES[selectedHero.id]
+              ? <Image source={HERO_IMAGES[selectedHero.id]} style={{ width: 36, height: 36, borderRadius: 18 }} />
+              : <Text style={{ fontSize: 16, color: C.purple }}>{selectedHero.name.charAt(0)}</Text>}
+          </View>
+          <View>
+            <Text style={styles.heroStripName}>{selectedHero.name}</Text>
+            <Text style={styles.heroStripSub}>Lv {selectedHero.level} · CP {totalHeroCp.toLocaleString()}</Text>
+          </View>
+        </Pressable>
+
+        <View style={styles.statsStripRight}>
+          {hero && currentZone ? (
+            <>
+              <Text style={styles.statChip}>🪙 {fmt(sessionResources.gold)}</Text>
+              <Text style={styles.statChip}>~{fmt(estimateGoldPerHour(currentZone))}/hr</Text>
+              <Pressable style={styles.recallBtn} onPress={undeployHero}>
+                <Text style={styles.recallBtnText}>Recall</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Text style={styles.idleLabel}>Idle</Text>
+          )}
+        </View>
+      </View>
+
+      {/* ── 3. Bottom row ── */}
+      <View style={styles.bottomRow}>
+
+        {/* Left: Chat / Loot Feed */}
+        <View style={styles.feedPanel}>
+          <Text style={styles.feedTitle}>Recent Drops</Text>
+          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+            {recentDrops.length === 0 ? (
+              <Text style={styles.feedEmpty}>No drops yet{'\n'}Deploy a hero to start!</Text>
+            ) : (
+              recentDrops.map((item, i) => (
+                <View key={item.id + i} style={styles.feedRow}>
+                  <Text style={[styles.feedDot, { color: DROP_COLORS[item.rarity] ?? C.textMuted }]}>◆</Text>
+                  <Text style={styles.feedName} numberOfLines={1}>{item.templateId.replace(/_/g, ' ')}</Text>
+                  <Text style={[styles.feedRarity, { color: DROP_COLORS[item.rarity] ?? C.textMuted }]}>
+                    {item.rarity.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        </View>
+
+        {/* Right: Zone / Events / Dungeons buttons */}
+        <View style={styles.actionCol}>
+
+          {/* Zone button */}
+          <Pressable
+            style={[styles.circleBtn, hero && styles.circleBtnActive]}
+            onPress={() => setShowZonePicker(true)}
+          >
+            <Text style={styles.circleBtnIcon}>🗺️</Text>
+            {hero && <View style={styles.circleActiveDot} />}
+          </Pressable>
+
+          {/* Events button */}
+          <Pressable style={styles.circleBtn} onPress={() => setShowEvents(true)}>
+            <Text style={styles.circleBtnIcon}>🎉</Text>
+          </Pressable>
+
+          {/* Dungeons button */}
+          <Pressable style={styles.circleBtn} onPress={() => setShowDungeons(true)}>
+            <Text style={styles.circleBtnIcon}>⚔️</Text>
+          </Pressable>
+
+        </View>
+      </View>
+
+      {/* Zone info tooltip when farming */}
+      {hero && currentZone && (
+        <View style={styles.zoneInfoBar}>
+          <Text style={styles.zoneInfoText}>
+            {ZONE_ICONS[currentZone.id]} {currentZone.name} · Cap {currentZone.offlineCapHours}h
           </Text>
         </View>
       )}
 
-      <ZoneSelector
+      {/* ── Modals ── */}
+      <ZonePickerModal
+        visible={showZonePicker}
         eligibleZones={eligibleZones}
         currentZoneId={hero?.zoneId}
         onSelect={handleDeploy}
+        onClose={() => setShowZonePicker(false)}
+      />
+      <HeroPickerModal
+        visible={showHeroPicker}
+        currentHeroId={selectedHero.id}
+        onSelect={handleHeroSelect}
+        onClose={() => setShowHeroPicker(false)}
+      />
+      <ComingSoonModal
+        visible={showEvents}
+        title="Events"
+        onClose={() => setShowEvents(false)}
+      />
+      <ComingSoonModal
+        visible={showDungeons}
+        title="Dungeons"
+        onClose={() => setShowDungeons(false)}
       />
 
-      <LootFeed items={sessionItems} />
-    </ScrollView>
+    </View>
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────
+
+const SCENE_H = SH * 0.38;
+const STATS_H = 56;
+
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },
-  content: { gap: 12, paddingBottom: 48 },
-  loader: {
-    flex: 1,
-    backgroundColor: C.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
+  loader: { flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' },
+
+  // ── Fighting area
+  fightingArea: { height: SCENE_H, overflow: 'hidden' },
+  offlineOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: '#00000088', justifyContent: 'center', padding: 16,
   },
-  sectionLabel: {
-    fontSize: 11,
-    color: C.textMuted,
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    paddingHorizontal: 16,
-  },
-  offlineBanner: {
-    backgroundColor: C.surfaceHigh,
-    margin: 16,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: C.gold + '44',
-    gap: 8,
-  },
-  offlineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  offlineTitle: { fontSize: 16, fontWeight: '600', color: C.textPrimary },
-  offlineCap: { fontSize: 12, color: C.orange },
-  offlineSub: { fontSize: 13, color: C.textMuted, lineHeight: 20 },
-  offlineLoot: { gap: 4 },
-  offlineLootItem: { fontSize: 14, color: C.textMuted },
-  claimBtn: {
-    backgroundColor: C.gold,
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  claimBtnText: { fontSize: 14, fontWeight: '700', color: C.bg },
-  heroCard: {
+
+  // ── Stats strip
+  statsStrip: {
+    height: STATS_H,
     backgroundColor: C.surface,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    gap: 12,
-  },
-  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  heroAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: C.purple + '33',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: C.purple + '88',
-  },
-  heroAvatarText: { fontSize: 22, color: C.purple },
-  heroInfo: { flex: 1, gap: 2 },
-  heroName: { fontSize: 16, fontWeight: '600', color: C.textPrimary },
-  heroStars: { fontSize: 12, color: C.gold },
-  heroLevel: { fontSize: 12, color: C.textMuted },
-  recallBtn: {
-    backgroundColor: C.surfaceHigh,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  recallBtnText: { fontSize: 13, color: C.textMuted },
-  zonePill: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: C.surfaceHigh,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  zonePillText: { fontSize: 13, color: C.textMuted },
-  zonePillGph: { fontSize: 13, color: C.gold },
-  sessionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sessionLabel: { fontSize: 13, color: C.textMuted },
-  sessionGold: { fontSize: 16, fontWeight: '600', color: C.gold },
-  noHero: {
-    backgroundColor: C.surface,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    gap: 6,
-  },
-  noHeroText: { fontSize: 15, color: C.textMuted },
-  noHeroSub: { fontSize: 12, color: C.textMuted, opacity: 0.6 },
-  zoneCard: {
-    backgroundColor: C.surface,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  zoneCardActive: { borderColor: '#4ADE8088', backgroundColor: '#4ADE8011' },
-  zoneCardLocked: { opacity: 0.5 },
-  zoneName: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
-  zoneDesc: { fontSize: 12, color: C.textMuted, marginTop: 2 },
-  zoneStats: { fontSize: 11, color: C.textMuted, marginTop: 4 },
-  lockIcon: { fontSize: 18 },
-  lootRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 5,
-    marginHorizontal: 16,
+    borderTopWidth: 0.5,
     borderBottomWidth: 0.5,
-    borderBottomColor: C.border,
+    borderColor: C.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    gap: 8,
   },
-  lootRarity: { fontSize: 10 },
-  lootName: {
+  heroStripBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  heroStripAvatar: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: C.purple + '33',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: C.purple + '66',
+  },
+  heroStripName: { fontSize: 13, fontWeight: '600', color: C.textPrimary },
+  heroStripSub: { fontSize: 11, color: C.textMuted },
+  statsStripRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statChip: {
+    backgroundColor: C.surfaceHigh, borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 4,
+    fontSize: 11, color: C.gold,
+    borderWidth: 0.5, borderColor: C.border,
+  },
+  recallBtn: {
+    backgroundColor: C.surfaceHigh, borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderWidth: 1, borderColor: C.border,
+  },
+  recallBtnText: { fontSize: 12, color: C.red },
+  idleLabel: { fontSize: 12, color: C.textMuted, fontStyle: 'italic' },
+
+  // ── Bottom row
+  bottomRow: {
     flex: 1,
-    fontSize: 13,
-    color: C.textPrimary,
-    textTransform: 'capitalize',
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    gap: 10,
   },
-  lootRarityLabel: { fontSize: 11 },
+
+  // Feed panel (left)
+  feedPanel: {
+    flex: 1,
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: C.border,
+    padding: 10,
+    overflow: 'hidden',
+  },
+  feedTitle: { fontSize: 10, color: C.textMuted, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 6 },
+  feedEmpty: { fontSize: 12, color: C.textMuted, opacity: 0.6, textAlign: 'center', marginTop: 12, lineHeight: 20 },
+  feedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 },
+  feedDot: { fontSize: 9 },
+  feedName: { flex: 1, fontSize: 11, color: C.textPrimary, textTransform: 'capitalize' },
+  feedRarity: { fontSize: 10, fontWeight: '700' },
+
+  // Action column (right)
+  actionCol: {
+    width: 60,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 4,
+  },
+  circleBtn: {
+    width: 50, height: 50, borderRadius: 25,
+    backgroundColor: C.surface,
+    borderWidth: 1.5, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  circleBtnActive: { borderColor: C.green, backgroundColor: C.green + '22' },
+  circleBtnLocked: { opacity: 0.45 },
+  circleBtnIcon: { fontSize: 22 },
+  circleLock: { position: 'absolute', bottom: 2, right: 2 },
+  circleActiveDot: {
+    position: 'absolute', top: 3, right: 3,
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: C.green,
+  },
+
+  // Zone info bar
+  zoneInfoBar: {
+    position: 'absolute',
+    top: SCENE_H - 28,
+    right: 12,
+    backgroundColor: '#00000066',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  zoneInfoText: { fontSize: 10, color: '#FFFFFFAA' },
+
+  // ── Offline banner
+  offlineBanner: {
+    backgroundColor: C.surface, borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: C.gold + '44', gap: 8,
+  },
+  offlineTitle: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
+  offlineSub: { fontSize: 12, color: C.textMuted },
+  offlineChip: {
+    backgroundColor: C.surfaceHigh, borderRadius: 6,
+    paddingHorizontal: 8, paddingVertical: 3,
+    fontSize: 12, color: C.textMuted,
+    borderWidth: 0.5, borderColor: C.border,
+  },
+  claimBtn: { backgroundColor: C.gold, borderRadius: 8, paddingVertical: 9, alignItems: 'center' },
+  claimBtnText: { fontSize: 14, fontWeight: '700', color: C.bg },
+
+  // ── Modals
+  modalBackdrop: { flex: 1, backgroundColor: '#00000088', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 20, gap: 10,
+    borderTopWidth: 1, borderColor: C.border,
+    maxHeight: SH * 0.7,
+  },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, textAlign: 'center', marginBottom: 4 },
+  modalClose: { borderRadius: 10, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: C.border, marginTop: 4 },
+
+  zoneRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.surfaceHigh, borderRadius: 10,
+    padding: 12, borderWidth: 1, borderColor: C.border,
+  },
+  zoneRowActive: { borderColor: C.green + '88', backgroundColor: C.green + '11' },
+  zoneRowLocked: { opacity: 0.5 },
+  zoneRowIcon: { fontSize: 24, width: 36, textAlign: 'center' },
+  zoneRowName: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
+  zoneRowDesc: { fontSize: 11, color: C.textMuted, marginTop: 1 },
+  zoneRowStats: { fontSize: 10, color: C.textMuted, marginTop: 2 },
+
+  heroPickRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.surfaceHigh, borderRadius: 10,
+    padding: 12, borderWidth: 1, borderColor: C.border,
+  },
+  heroPickAvatar: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: C.purple + '33', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: C.purple + '66',
+  },
+  heroPickName: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
+  heroPickSub: { fontSize: 11, color: C.textMuted, marginTop: 2 },
 });

@@ -56,6 +56,7 @@ export interface PetTemplate {
   id: string;
   name: string;
   emoji: string;
+  image?: number;          // optional require()'d asset (gif/png)
   rarity: PetRarity;
   zone: PetZone;
   baseHp: number;
@@ -71,6 +72,7 @@ export interface OwnedPet {
   templateId: string;
   name: string;
   emoji: string;
+  image?: number;
   rarity: PetRarity;
   level: number;
   exp: number;
