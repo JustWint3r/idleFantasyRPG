@@ -10,6 +10,8 @@ export interface HeroTemplate {
   name: string;
   class: HeroClass;
   image: ReturnType<typeof require>;
+  /** Optional video played during attack animation in the farm scene */
+  attackVideo?: ReturnType<typeof require>;
 }
 
 export interface HeroState {

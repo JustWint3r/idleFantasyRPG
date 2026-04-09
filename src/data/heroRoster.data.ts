@@ -22,6 +22,8 @@ export const HERO_ROSTER: HeroTemplate[] = [
     id: 'hero_003',
     name: 'Selene the Sage',
     class: 'support',
-    image: require('../../assets/aria.png'), // placeholder until Selene asset is added
+    image: require('../../assets/selene.png'),
+    /** Animated GIF (transparent background) played while attacking */
+    attackVideo: require('../../assets/seleneNormalAtk.gif'),
   },
 ];
