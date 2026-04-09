@@ -4,6 +4,7 @@ import playerRoutes from "./routes/player";
 import gameStateRoutes from "./routes/gamestate";
 import inventoryRoutes from "./routes/inventory";
 import itemRoutes from "./routes/items";
+import summonRoutes from "./routes/summon";
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use("/api/player", playerRoutes);
 app.use("/api/gamestate", gameStateRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/items", itemRoutes);
+app.use("/api/summon", summonRoutes);
 
 // Health check
 app.get("/", (req, res) => {
