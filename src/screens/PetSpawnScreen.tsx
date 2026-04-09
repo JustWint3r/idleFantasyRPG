@@ -66,8 +66,14 @@ function useRainbowColor(active: boolean) {
 }
 
 // ── Pre-generated particle data (module-level = stable) ────────
-interface SparkData { id: number; x: number; y: number; delay: number; duration: number; size: number }
-interface LeafData  { id: number; x: number; y: number; delay: number; duration: number }
+interface SparkData  { id: number; x: number; y: number; delay: number; duration: number; size: number }
+interface LeafData   { id: number; x: number; y: number; delay: number; duration: number }
+interface BubbleData { id: number; x: number; y: number; delay: number; duration: number; size: number }
+
+// Sea clip region constants (fraction of MAP dimensions)
+const SEA_CLIP_LEFT = 0.44;
+const SEA_CLIP_TOP  = 0.14;
+const SEA_CLIP_H    = 0.63; // fraction of MAP_H
 
 // y is relative to the fire-clip container (which starts at FIRE_CLIP_TOP * MAP_H)
 const SPARKS: SparkData[] = Array.from({ length: 18 }, (_, i) => ({
@@ -77,6 +83,17 @@ const SPARKS: SparkData[] = Array.from({ length: 18 }, (_, i) => ({
   delay:    Math.floor(Math.random() * 2800),
   duration: 900  + Math.floor(Math.random() * 1100),
   size:     3    + Math.random() * 4.5,
+}));
+
+// Bubbles: y relative to sea-clip container (starts at SEA_CLIP_TOP * MAP_H)
+// Spawn in the lower portion of the sea zone so they have room to rise
+const BUBBLES: BubbleData[] = Array.from({ length: 14 }, (_, i) => ({
+  id:       i,
+  x:        MAP_W * (SEA_CLIP_LEFT + Math.random() * (1 - SEA_CLIP_LEFT - 0.03)) - MAP_W * SEA_CLIP_LEFT,
+  y:        MAP_H * (SEA_CLIP_TOP  + 0.26 + Math.random() * 0.34) - MAP_H * SEA_CLIP_TOP,
+  delay:    Math.floor(Math.random() * 4500),
+  duration: 2200 + Math.floor(Math.random() * 2800),
+  size:     3 + Math.random() * 5,
 }));
 
 // y is relative to the forest-clip container (starts at 0)
@@ -200,6 +217,72 @@ function LeafParticle({ x, y, delay, duration }: LeafData) {
   );
 }
 
+// ── Sea Bubble ─────────────────────────────────────────────────
+const BUBBLE_COLORS = ['rgba(120,210,255,0.75)', 'rgba(180,235,255,0.65)', 'rgba(255,255,255,0.55)'];
+
+function SeaBubble({ x, y, delay, duration, size }: BubbleData) {
+  const color   = useRef(BUBBLE_COLORS[Math.floor(Math.random() * BUBBLE_COLORS.length)]).current;
+  const riseAmt = useRef(55 + Math.random() * 75).current;
+  const driftX  = useRef((Math.random() - 0.5) * 12).current;
+
+  const ty    = useRef(new Animated.Value(0)).current;
+  const tx    = useRef(new Animated.Value(0)).current;
+  const op    = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.6)).current;
+
+  const isMounted = useRef(true);
+  const animRef   = useRef<AnimRef | null>(null);
+
+  const run = useCallback(() => {
+    ty.setValue(0); tx.setValue(0); op.setValue(0); scale.setValue(0.6);
+    animRef.current = Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([
+        // Fade in gently, hold, then fade out near the top
+        Animated.sequence([
+          Animated.timing(op, { toValue: 0.55, duration: duration * 0.20, useNativeDriver: true }),
+          Animated.timing(op, { toValue: 0.45, duration: duration * 0.60, useNativeDriver: true }),
+          Animated.timing(op, { toValue: 0,    duration: duration * 0.20, useNativeDriver: true }),
+        ]),
+        // Rise slowly upward
+        Animated.timing(ty, { toValue: -riseAmt, duration, useNativeDriver: true }),
+        // Slight horizontal wobble
+        Animated.timing(tx, { toValue: driftX,   duration, useNativeDriver: true }),
+        // Bubble grows slightly as it rises (decompression effect)
+        Animated.timing(scale, { toValue: 1.3, duration, useNativeDriver: true }),
+      ]),
+    ]);
+    animRef.current.start(({ finished }) => {
+      if (finished && isMounted.current) run();
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    isMounted.current = true;
+    run();
+    return () => { isMounted.current = false; animRef.current?.stop(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position:        'absolute',
+        left:            x,
+        top:             y,
+        width:           size,
+        height:          size,
+        borderRadius:    size / 2,
+        borderWidth:     1.2,
+        borderColor:     color,
+        backgroundColor: 'transparent',
+        opacity:         op,
+        transform:       [{ translateY: ty }, { translateX: tx }, { scale }],
+      }}
+    />
+  );
+}
+
 // ── Pet Encounter Card ─────────────────────────────────────────
 // Positions as fractions of MAP dimensions.
 // Forest clearing: top-left | Sea: right half, mid-ocean | Fire: bottom-left lava field
@@ -287,6 +370,11 @@ export default function PetSpawnScreen({
           {LEAVES.map(l => <LeafParticle key={l.id} {...l} />)}
         </View>
 
+        {/* 🫧 Sea bubbles */}
+        <View pointerEvents="none" style={styles.seaClip}>
+          {BUBBLES.map(b => <SeaBubble key={b.id} {...b} />)}
+        </View>
+
         {/* 🔥 Fire sparks */}
         <View pointerEvents="none" style={styles.fireClip}>
           {SPARKS.map(s => <FireSpark key={s.id} {...s} />)}
@@ -347,6 +435,14 @@ const styles = StyleSheet.create({
     left:     0,
     width:    MAP_W * 0.68,
     height:   MAP_H * 0.50,
+    overflow: 'hidden',
+  },
+  seaClip: {
+    position: 'absolute',
+    top:      MAP_H * SEA_CLIP_TOP,
+    left:     MAP_W * SEA_CLIP_LEFT,
+    width:    MAP_W * (1 - SEA_CLIP_LEFT),
+    height:   MAP_H * SEA_CLIP_H,
     overflow: 'hidden',
   },
   fireClip: {
