@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { usePetCollection } from '../context/PetCollectionContext';
-import { simulateBattle } from '../engine/petBattleEngine';
+import { PET_TEMPLATES, simulateBattle } from '../engine/petBattleEngine';
 import {
   RARITY_COLOR,
   RARITY_LABEL,
@@ -197,7 +197,7 @@ export default function PetFightingScreen({
         <Text style={styles.vsText}>VS</Text>
         <FighterCard
           emoji={myPet.emoji}
-          image={myPet.image}
+          image={PET_TEMPLATES.find((t) => t.id === myPet.templateId)?.image}
           name={myPet.name}
           rarity={myPet.rarity}
           currentHp={playerHp}

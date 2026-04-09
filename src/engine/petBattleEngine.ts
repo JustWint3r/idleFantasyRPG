@@ -151,6 +151,11 @@ function makeWildInstance(template: PetTemplate): WildPetInstance {
   };
 }
 
+/** Spawn exactly 1 wild pet for a zone */
+export function spawnOneWildPet(zone: PetZone): WildPetInstance {
+  return makeWildInstance(weightedPick(zone));
+}
+
 /** Spawn 3 unique wild pets for a zone encounter */
 export function spawnWildPets(zone: PetZone): WildPetInstance[] {
   const seen = new Set<string>();
