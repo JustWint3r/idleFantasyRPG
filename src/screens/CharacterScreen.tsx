@@ -20,6 +20,16 @@ import {
 import { useGear } from '../context/GearContext';
 import { usePlayer } from '../context/PlayerContext';
 import { usePetCollection } from '../context/PetCollectionContext';
+import { useHeroCollection } from '../context/HeroCollectionContext';
+import { HERO_ROSTER } from '../data/heroRoster.data';
+import {
+  expToNextLevel,
+  MAX_LEVEL,
+  MAX_STARS,
+  STAR_UP_GOLD,
+  XP_PER_BOOK,
+  type HeroState,
+} from '../types/hero.types';
 import {
   RARITY_COLOR as GEAR_RARITY_COLOR,
   RARITY_LABEL as GEAR_RARITY_LABEL,
@@ -73,11 +83,12 @@ const MOCK_HEROES = [
   { id: 'hero_003', name: 'Selene', level: 55, image: require('../../assets/aria.png') },
 ];
 
-type TabKey = 'all' | 'gear' | 'pets' | 'mats' | 'currencies';
+type TabKey = 'all' | 'gear' | 'pets' | 'heroes' | 'mats' | 'currencies';
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'gear', label: 'Gear' },
   { key: 'pets', label: 'Pets' },
+  { key: 'heroes', label: 'Heroes' },
   { key: 'mats', label: 'Mats' },
   { key: 'currencies', label: 'Wallet' },
 ];
@@ -177,6 +188,156 @@ function PetCell({ pet, isActive, onPress }: { pet: OwnedPet; isActive: boolean;
         {isActive && <View style={styles.equippedDot} />}
       </Pressable>
     </Animated.View>
+  );
+}
+
+// ── Hero card (inventory grid) ────────────────────────────────
+
+function HeroCard({ heroState, onPress }: { heroState: HeroState; onPress: () => void }) {
+  const template = HERO_ROSTER.find((t) => t.id === heroState.id);
+  const isMaxLevel = heroState.level >= MAX_LEVEL;
+  const expNeeded = expToNextLevel(heroState.level);
+  const progress = isMaxLevel ? 1 : heroState.exp / expNeeded;
+  const starStr = '★'.repeat(heroState.stars) + '☆'.repeat(Math.max(0, MAX_STARS - heroState.stars));
+
+  return (
+    <Pressable style={styles.heroCard} onPress={onPress}>
+      <Image source={template?.image} style={styles.heroCardImage} resizeMode="contain" />
+      <Text style={styles.heroCardName} numberOfLines={1}>{template?.name.split(' ')[0]}</Text>
+      <Text style={styles.heroCardStars} numberOfLines={1}>{starStr}</Text>
+      <Text style={styles.heroCardLevel}>Lv {heroState.level}</Text>
+      {/* EXP bar */}
+      <View style={styles.heroCardExpBg}>
+        <View style={[styles.heroCardExpFill, { width: `${Math.round(progress * 100)}%` as any }]} />
+      </View>
+    </Pressable>
+  );
+}
+
+// ── Hero upgrade modal ────────────────────────────────────────
+
+function HeroUpgradeModal({
+  heroState,
+  xpBooks,
+  gold,
+  onLevelUp,
+  onStarUp,
+  onClose,
+}: {
+  heroState: HeroState;
+  xpBooks: number;
+  gold: number;
+  onLevelUp: (books: number) => void;
+  onStarUp: () => void;
+  onClose: () => void;
+}) {
+  const [bookInput, setBookInput] = useState(1);
+  const template = HERO_ROSTER.find((t) => t.id === heroState.id);
+  const isMaxLevel = heroState.level >= MAX_LEVEL;
+  const isMaxStars = heroState.stars >= MAX_STARS;
+  const expNeeded = expToNextLevel(heroState.level);
+  const progress = isMaxLevel ? 1 : heroState.exp / expNeeded;
+  const expGain = bookInput * XP_PER_BOOK;
+  const starCost = isMaxStars ? 0 : (STAR_UP_GOLD[heroState.stars] ?? 0);
+  const canAffordStar = gold >= starCost;
+  const starStr = (n: number) => '★'.repeat(n) + '☆'.repeat(Math.max(0, MAX_STARS - n));
+
+  return (
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalCard}>
+        {/* Header */}
+        <View style={[styles.modalHeader, { borderBottomColor: C.purple + '55' }]}>
+          <Image source={template?.image} style={{ width: 48, height: 48, borderRadius: 8 }} resizeMode="contain" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.modalName}>{template?.name}</Text>
+            <Text style={[styles.modalRarity, { color: C.purple }]}>
+              {template?.class.charAt(0).toUpperCase()}{template?.class.slice(1)} · Lv {heroState.level}
+            </Text>
+          </View>
+          <Text style={[styles.modalLevel, { color: C.gold }]}>{starStr(heroState.stars)}</Text>
+        </View>
+
+        {/* EXP bar */}
+        <View style={{ gap: 4 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 11, color: C.textMuted }}>EXP</Text>
+            {isMaxLevel
+              ? <Text style={{ fontSize: 11, color: C.gold }}>MAX LEVEL</Text>
+              : <Text style={{ fontSize: 11, color: C.textMuted }}>{heroState.exp} / {expNeeded}</Text>}
+          </View>
+          <View style={styles.heroCardExpBg}>
+            <View style={[styles.heroCardExpFill, { width: `${Math.round(progress * 100)}%` as any }]} />
+          </View>
+        </View>
+
+        {/* Level up section */}
+        {!isMaxLevel && (
+          <View style={styles.heroUpgradeSection}>
+            <Text style={styles.stonesLabel}>Use XP Books (📖 {xpBooks} available)</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
+              <Pressable
+                style={styles.heroQtyBtn}
+                onPress={() => setBookInput(Math.max(1, bookInput - 1))}
+              >
+                <Text style={styles.heroQtyBtnText}>−</Text>
+              </Pressable>
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: C.textPrimary }}>{bookInput}</Text>
+                <Text style={{ fontSize: 10, color: C.textMuted }}>+{expGain} EXP</Text>
+              </View>
+              <Pressable
+                style={styles.heroQtyBtn}
+                onPress={() => setBookInput(Math.min(xpBooks, bookInput + 1))}
+              >
+                <Text style={styles.heroQtyBtnText}>+</Text>
+              </Pressable>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+              {[5, 10, 50].map((n) => (
+                <Pressable key={n} style={[styles.heroQtyBtn, { flex: 1 }]} onPress={() => setBookInput(Math.min(xpBooks, n))}>
+                  <Text style={[styles.heroQtyBtnText, { fontSize: 11 }]}>×{n}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              style={[styles.upgradeBtn, { marginTop: 6, opacity: xpBooks < bookInput ? 0.4 : 1 }]}
+              onPress={() => { if (xpBooks >= bookInput) onLevelUp(bookInput); }}
+              disabled={xpBooks < bookInput}
+            >
+              <Text style={styles.upgradeBtnText}>Use {bookInput} Book{bookInput > 1 ? 's' : ''}</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Star up section */}
+        <View style={styles.heroUpgradeSection}>
+          <Text style={styles.stonesLabel}>Star Up</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+            <Text style={{ fontSize: 18, letterSpacing: 2, color: C.gold }}>{starStr(heroState.stars)}</Text>
+            {!isMaxStars && (
+              <Text style={{ fontSize: 12, color: C.gold }}>🪙 {starCost.toLocaleString()}</Text>
+            )}
+          </View>
+          {isMaxStars ? (
+            <Text style={{ fontSize: 12, color: C.gold, textAlign: 'center', marginTop: 6 }}>MAX STARS ✦</Text>
+          ) : (
+            <Pressable
+              style={[styles.upgradeBtn, { marginTop: 8, opacity: canAffordStar ? 1 : 0.4 }]}
+              onPress={() => { if (canAffordStar) onStarUp(); }}
+              disabled={!canAffordStar}
+            >
+              <Text style={styles.upgradeBtnText}>
+                {canAffordStar ? `Star Up → ${'★'.repeat(heroState.stars + 1)}` : 'Not enough Gold'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
+        <Pressable style={styles.closeBtn} onPress={onClose}>
+          <Text style={styles.closeBtnText}>Close</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -407,11 +568,13 @@ function PetInspectModal({
 
 export default function CharacterScreen() {
   const { gearState, equip, unequip, upgrade, applyUpgrade } = useGear();
-  const { currencies } = usePlayer();
+  const { currencies, spendCurrencies } = usePlayer();
   const { ownedPets, heroPets, equipPetToHero, unequipPetFromHero } = usePetCollection();
+  const { heroes, addExp, starUp: starUpHero } = useHeroCollection();
   const [inspecting, setInspecting] = useState<GearItem | null>(null);
   const [upgrading, setUpgrading] = useState<GearItem | null>(null);
   const [inspectingPet, setInspectingPet] = useState<OwnedPet | null>(null);
+  const [upgradingHero, setUpgradingHero] = useState<HeroState | null>(null);
   const [showTalent, setShowTalent] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
   const [heroIndex, setHeroIndex] = useState(0);
@@ -427,6 +590,7 @@ export default function CharacterScreen() {
   const allItems = gearState.items;
   const filteredItems = activeTab === 'all' || activeTab === 'gear' ? allItems : [];
   const filteredPets = activeTab === 'all' || activeTab === 'pets' ? ownedPets : [];
+  const filteredHeroes = activeTab === 'heroes' ? heroes : [];
 
   function openSlot(slot: GearSlot) {
     const item = gear[slot as keyof typeof gear];
@@ -450,6 +614,8 @@ export default function CharacterScreen() {
     const idx = Math.round(e.nativeEvent.contentOffset.x / PORTRAIT_W);
     if (idx >= 0 && idx < MOCK_HEROES.length) setHeroIndex(idx);
   }
+
+  const currentHeroState = heroes.find((h) => h.id === hero.id);
 
   const gridData: ({ type: 'item'; data: GearItem } | { type: 'pet'; data: OwnedPet })[] = [
     ...filteredItems.map((i) => ({ type: 'item' as const, data: i })),
@@ -492,7 +658,7 @@ export default function CharacterScreen() {
               ))}
             </ScrollView>
             <Text style={styles.portraitName}>{hero.name}</Text>
-            <Text style={styles.portraitLevel}>Lv {hero.level}</Text>
+            <Text style={styles.portraitLevel}>Lv {currentHeroState?.level ?? hero.level}</Text>
             {/* Dot indicators */}
             <View style={styles.heroDots}>
               {MOCK_HEROES.map((_, i) => (
@@ -532,7 +698,19 @@ export default function CharacterScreen() {
       </View>
 
       {/* ── SCROLLABLE inventory grid ── */}
-      {activeTab === 'currencies' ? (
+      {activeTab === 'heroes' ? (
+        <FlatList
+          key="heroes-grid"
+          data={filteredHeroes}
+          keyExtractor={(h) => h.id}
+          numColumns={3}
+          style={styles.grid}
+          contentContainerStyle={styles.gridContent}
+          renderItem={({ item: h }) => (
+            <HeroCard heroState={h} onPress={() => setUpgradingHero(h)} />
+          )}
+        />
+      ) : activeTab === 'currencies' ? (
         <ScrollView style={styles.grid} contentContainerStyle={styles.gridContent}>
           {CURRENCY_META.map((m) => (
             <View key={m.key} style={styles.currRow}>
@@ -561,6 +739,7 @@ export default function CharacterScreen() {
         </ScrollView>
       ) : (
         <FlatList
+          key="items-grid"
           data={gridData}
           keyExtractor={(r) => r.data.id}
           numColumns={4}
@@ -630,6 +809,38 @@ export default function CharacterScreen() {
               }
             }}
             onClose={() => setInspectingPet(null)}
+          />
+        </Modal>
+      )}
+
+      {/* Hero upgrade modal */}
+      {upgradingHero && (
+        <Modal transparent animationType="slide">
+          <HeroUpgradeModal
+            heroState={upgradingHero}
+            xpBooks={currencies.xpBooks}
+            gold={currencies.gold}
+            onLevelUp={(books) => {
+              spendCurrencies({ xpBooks: books });
+              addExp(upgradingHero.id, books * XP_PER_BOOK);
+              setUpgradingHero((prev) => {
+                if (!prev) return prev;
+                const updated = heroes.find((h) => h.id === prev.id);
+                return updated ?? prev;
+              });
+            }}
+            onStarUp={() => {
+              const cost = STAR_UP_GOLD[upgradingHero.stars] ?? 0;
+              if (spendCurrencies({ gold: cost })) {
+                starUpHero(upgradingHero.id);
+                setUpgradingHero((prev) => {
+                  if (!prev) return prev;
+                  const updated = heroes.find((h) => h.id === prev.id);
+                  return updated ?? prev;
+                });
+              }
+            }}
+            onClose={() => setUpgradingHero(null)}
           />
         </Modal>
       )}
@@ -796,6 +1007,45 @@ const styles = StyleSheet.create({
   emptyGrid: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40, gap: 6 },
   emptyText: { fontSize: 15, color: C.textMuted },
   emptySub: { fontSize: 12, color: C.textMuted, opacity: 0.6, textAlign: 'center' },
+
+  // Hero card (3-column grid)
+  heroCard: {
+    flex: 1,
+    margin: 4,
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: C.purple + '66',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    gap: 3,
+  },
+  heroCardImage: { width: 64, height: 64, borderRadius: 8 },
+  heroCardName: { fontSize: 11, fontWeight: '600', color: C.textPrimary, textAlign: 'center' },
+  heroCardStars: { fontSize: 9, color: C.gold, letterSpacing: 1 },
+  heroCardLevel: { fontSize: 10, color: C.textMuted },
+  heroCardExpBg: {
+    width: '90%', height: 4, borderRadius: 2,
+    backgroundColor: C.border, overflow: 'hidden',
+  },
+  heroCardExpFill: { height: 4, borderRadius: 2, backgroundColor: C.purple },
+
+  // Hero upgrade modal sections
+  heroUpgradeSection: {
+    backgroundColor: C.surfaceHigh,
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 0.5,
+    borderColor: C.border,
+  },
+  heroQtyBtn: {
+    width: 40, height: 40, borderRadius: 8,
+    backgroundColor: C.surface,
+    borderWidth: 1, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  heroQtyBtnText: { fontSize: 18, color: C.textPrimary, fontWeight: '600' },
 
   // Currency wallet rows
   currRow: {

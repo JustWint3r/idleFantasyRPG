@@ -4,6 +4,7 @@ import { PlayerProvider } from '../context/PlayerContext';
 import { TalentProvider } from '../context/TalentContext';
 import { AuthProvider } from '../context/AuthContext';
 import { PetCollectionProvider } from '../context/PetCollectionContext';
+import { HeroCollectionProvider } from '../context/HeroCollectionContext';
 
 export default function RootLayout() {
   return (
@@ -12,7 +13,9 @@ export default function RootLayout() {
         <GearProvider>
           <TalentProvider>
             <PetCollectionProvider>
-              <Stack screenOptions={{ headerShown: false }} />
+              <HeroCollectionProvider>
+                <Stack screenOptions={{ headerShown: false }} />
+              </HeroCollectionProvider>
             </PetCollectionProvider>
           </TalentProvider>
         </GearProvider>
