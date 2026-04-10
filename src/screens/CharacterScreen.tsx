@@ -78,9 +78,9 @@ const LEFT_SLOTS: GearSlot[] = ['weapon', 'armor', 'helmet'];
 const RIGHT_SLOTS: GearSlot[] = ['ring', 'boots', 'necklace'];
 
 const MOCK_HEROES = [
-  { id: 'hero_001', name: 'Aria',   level: 42, image: require('../../assets/aria.png') },
-  { id: 'hero_002', name: 'Kael',   level: 38, image: require('../../assets/aria.png') },
-  { id: 'hero_003', name: 'Selene', level: 55, image: require('../../assets/selene.png') },
+  { id: 'hero_001', name: 'Aria',   level: 42, image: require('../../assets/characters/aria/aria.png') },
+  { id: 'hero_002', name: 'Kael',   level: 38, image: require('../../assets/characters/aria/aria.png') },
+  { id: 'hero_003', name: 'Selene', level: 55, image: require('../../assets/characters/selene/selene.png') },
 ];
 
 type TabKey = 'all' | 'gear' | 'pets' | 'heroes' | 'mats' | 'currencies';

@@ -60,8 +60,8 @@ const MOCK_HEROES: DeployedHero[] = [
 ];
 
 const HERO_IMAGES: Record<string, ReturnType<typeof require>> = {
-  hero_001: require('../../assets/aria.png'),
-  hero_003: require('../../assets/selene.png'),
+  hero_001: require('../../assets/characters/aria/aria.png'),
+  hero_003: require('../../assets/characters/selene/selene.png'),
 };
 
 // ── Helpers ───────────────────────────────────────────────────
