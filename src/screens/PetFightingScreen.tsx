@@ -31,10 +31,11 @@ import {
 const { width: SW, height: SH } = Dimensions.get('window');
 
 // Pet sprite anchor points — fraction of full screen dims
-const OPP_CX = SW * 0.26;
-const OPP_CY = SH * 0.50;
-const MY_CX  = SW * 0.72;
-const MY_CY  = SH * 0.54;
+// My pet: left side    Opponent (to catch): right side
+const MY_CX  = SW * 0.26;
+const MY_CY  = SH * 0.50;
+const OPP_CX = SW * 0.72;
+const OPP_CY = SH * 0.54;
 
 // Safe area offsets for overlays
 const TOP_PAD    = Platform.OS === 'ios' ? 54 : 36;
@@ -396,10 +397,10 @@ export default function PetFightingScreen({
       setPlayerHp(round.playerHpAfter);
       setWildHp(round.wildHpAfter);
       if (round.attacker === 'player') {
-        shakeAnim(wildShake);
+        shakeAnim(playerShake);
         setLog(prev => [...prev, `${myPet.name} attacks for ${round.damage} dmg!`]);
       } else {
-        shakeAnim(playerShake);
+        shakeAnim(wildShake);
         setLog(prev => [...prev, `${wildPet.template.name} attacks for ${round.damage} dmg!`]);
       }
       setStep(s => s + 1);
@@ -428,32 +429,34 @@ export default function PetFightingScreen({
         </View>
 
         {/* ── Pet sprites on platform ── */}
-        <View style={[styles.spriteAnchor, { left: OPP_CX - 36, top: OPP_CY - 72 }]}>
-          <PetSprite emoji={wildPet.template.emoji} image={wildPet.template.image} shake={wildShake} />
-        </View>
+        {/* My pet: left side, faces right */}
         <View style={[styles.spriteAnchor, { left: MY_CX - 36, top: MY_CY - 72 }]}>
-          <PetSprite emoji={myPet.emoji} image={myTpl?.image} shake={playerShake} flip />
+          <PetSprite emoji={myPet.emoji} image={myTpl?.image} shake={playerShake} />
+        </View>
+        {/* Opponent (to catch): right side, flipped to face left */}
+        <View style={[styles.spriteAnchor, { left: OPP_CX - 36, top: OPP_CY - 72 }]}>
+          <PetSprite emoji={wildPet.template.emoji} image={wildPet.template.image} shake={wildShake} flip />
         </View>
 
         {/* ── HUD overlay (top) ── */}
         <View style={[styles.hudOverlay, { top: TOP_PAD }]}>
-          <StatCard
-            label="OPPONENT"
-            name={wildPet.template.name}
-            rarity={wildPet.template.rarity}
-            currentHp={wildHp}
-            maxHp={wildPet.maxHp}
-            align="left"
-          />
-          <View style={styles.hudVs}>
-            <Text style={styles.hudVsTxt}>VS</Text>
-          </View>
           <StatCard
             label="MY PET"
             name={myPet.name}
             rarity={myPet.rarity}
             currentHp={playerHp}
             maxHp={myPet.maxHp}
+            align="left"
+          />
+          <View style={styles.hudVs}>
+            <Text style={styles.hudVsTxt}>VS</Text>
+          </View>
+          <StatCard
+            label="OPPONENT"
+            name={wildPet.template.name}
+            rarity={wildPet.template.rarity}
+            currentHp={wildHp}
+            maxHp={wildPet.maxHp}
             align="right"
           />
         </View>
