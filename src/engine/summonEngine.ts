@@ -22,8 +22,23 @@ export interface SummonBannerConfig {
   pityAThreshold: number;
   sTierChance: number;
   aTierChance: number;
+  featuredSCharacterId: string;
+  featuredSRate: number;
   characters: Character[];
 }
+
+const HERO_POOL: Character[] = [
+  { id: 's1', name: 'Aurelius', rarity: 'S' },
+  { id: 's2', name: 'Nyx', rarity: 'S' },
+  { id: 's3', name: 'Kael', rarity: 'S' },
+  { id: 's4', name: 'Seraphine', rarity: 'S' },
+  { id: 'a1', name: 'Luna', rarity: 'A' },
+  { id: 'a2', name: 'Ronan', rarity: 'A' },
+  { id: 'a3', name: 'Mira', rarity: 'A' },
+  { id: 'b1', name: 'Garrick', rarity: 'B' },
+  { id: 'b2', name: 'Faye', rarity: 'B' },
+  { id: 'b3', name: 'Thorn', rarity: 'B' },
+];
 
 export const SUMMON_BANNERS: SummonBannerConfig[] = [
   {
@@ -33,11 +48,9 @@ export const SUMMON_BANNERS: SummonBannerConfig[] = [
     pityAThreshold: 10,
     sTierChance: 0.008,
     aTierChance: 0.06,
-    characters: [
-      { id: '1', name: 'Hero S', rarity: 'S' },
-      { id: '2', name: 'Mage A', rarity: 'A' },
-      { id: '3', name: 'Warrior B', rarity: 'B' },
-    ],
+    featuredSCharacterId: 's1',
+    featuredSRate: 0.5,
+    characters: HERO_POOL,
   },
   {
     id: 'event_2',
@@ -46,11 +59,9 @@ export const SUMMON_BANNERS: SummonBannerConfig[] = [
     pityAThreshold: 10,
     sTierChance: 0.01,
     aTierChance: 0.08,
-    characters: [
-      { id: '4', name: 'Rogue S', rarity: 'S' },
-      { id: '5', name: 'Priest A', rarity: 'A' },
-      { id: '6', name: 'Knight B', rarity: 'B' },
-    ],
+    featuredSCharacterId: 's2',
+    featuredSRate: 0.5,
+    characters: HERO_POOL,
   },
 ];
 
@@ -61,6 +72,23 @@ export function getSummonBannerById(eventId: string): SummonBannerConfig | undef
 function pickRandomCharacter(characters: Character[], rarity: Character['rarity']): Character {
   const pool = characters.filter((character) => character.rarity === rarity);
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function pickSCharacterWithFeatured5050(banner: SummonBannerConfig): Character {
+  const sPool = banner.characters.filter((character) => character.rarity === 'S');
+  const featured = sPool.find((character) => character.id === banner.featuredSCharacterId);
+
+  if (!featured) {
+    return pickRandomCharacter(banner.characters, 'S');
+  }
+
+  const offBannerSPool = sPool.filter((character) => character.id !== featured.id);
+  if (offBannerSPool.length === 0) {
+    return featured;
+  }
+
+  const isFeaturedWin = Math.random() < banner.featuredSRate;
+  return isFeaturedWin ? featured : offBannerSPool[Math.floor(Math.random() * offBannerSPool.length)];
 }
 
 export function performSummon(
@@ -87,13 +115,15 @@ export function performSummon(
   let character: Character;
 
   if (isPity || roll < banner.sTierChance) {
-    character = pickRandomCharacter(banner.characters, 'S');
+    character = pickSCharacterWithFeatured5050(banner);
 
+    // Any S-tier outcome resets pity, whether it is the featured win or the off-banner loss.
     if (!isPity) {
       newPityCount = 0;
       newPityACount = 0;
     }
   } else if (isPityA || roll < banner.aTierChance) {
+    // Any A-tier outcome resets A pity.
     character = pickRandomCharacter(banner.characters, 'A');
 
     if (!isPityA) {
